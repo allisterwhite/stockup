@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Stock Up! Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e16;--panel:#131a26;--panel2:#1c2433;--line:rgba(255,255,255,.08);
+  --text:#eaeef4;--dim:rgba(234,238,244,.5);--dim2:rgba(234,238,244,.26);
+  --green:#00ffa3;--green-dark:#008a5c;--green-rgb:0,255,163;--red:#ff3b5c;--gold:#ffc83d;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent;user-select:none}
+.display{font-family:'Anton',sans-serif;letter-spacing:1px}
+.mono{font-family:'Space Mono',monospace}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;z-index:500;background:radial-gradient(ellipse at 50% 28%,#172238 0%,var(--bg) 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+#splash.hide{animation:splashOut .45s ease forwards;pointer-events:none}
+@keyframes splashOut{to{opacity:0;transform:scale(1.04)}}
+.sp-content{text-align:center;animation:spIn .7s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes spIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.sp-emoji{font-size:clamp(50px,18vw,84px);margin-bottom:6px;filter:drop-shadow(0 0 26px rgba(0,255,163,.45))}
+.sp-title{font-size:clamp(26px,10vw,46px);line-height:1}
+.sp-title .accent{color:var(--green)}
+.sp-sub{font-family:'Space Mono',monospace;font-size:clamp(8px,3vw,12px);color:var(--dim);letter-spacing:.3em;margin:10px 0 26px;text-transform:uppercase}
+.sp-tap{font-family:'Space Mono',monospace;font-size:11px;color:var(--dim2);letter-spacing:.2em;animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:.85}}
+
+/* SCREENS */
+.screen{display:none;flex-direction:column;height:100vh;max-height:100vh}
+.screen.active{display:flex}
+
+/* SETUP */
+#setupScreen{align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.setup-box{width:100%;max-width:400px;display:flex;flex-direction:column;gap:14px}
+.setup-title{font-size:24px;color:var(--green);text-align:center}
+.setup-sub{font-size:12px;color:var(--dim);text-align:center;line-height:1.6}
+.field-group{display:flex;flex-direction:column;gap:7px}
+.field-group label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:800}
+.field-group input[type=text]{background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;color:var(--text);font-size:15px;padding:11px 12px;outline:none;width:100%}
+.field-group input:focus{border-color:var(--green)}
+.color-row{display:flex;gap:10px;flex-wrap:wrap}
+.color-dot{width:34px;height:34px;border-radius:50%;border:3px solid transparent;transition:all .15s;cursor:pointer}
+.color-dot.sel{border-color:var(--text);transform:scale(1.12)}
+.start-btn{padding:15px;background:linear-gradient(135deg,var(--green),var(--green-dark));border:none;border-radius:12px;font-family:'Anton',sans-serif;font-size:18px;letter-spacing:.1em;color:#04140e;box-shadow:0 5px 0 var(--green-dark);transition:transform .12s}
+.start-btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--green-dark)}
+
+/* TERMINAL HEADER — single row */
+.term-top{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#070a10;border-bottom:2px solid var(--line);flex-shrink:0;flex-wrap:nowrap}
+.me-chip{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.me-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.me-name{font-size:13px;font-weight:800;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis}
+/* inline portfolio slots in header */
+.port-inline{display:flex;gap:4px;align-items:center;overflow:hidden;min-width:0;flex:1}
+.port-inline::-webkit-scrollbar{display:none}
+.port-slot{display:flex;align-items:center;gap:3px;background:var(--panel2);border:1.5px solid var(--line);border-radius:7px;padding:3px 7px;font-size:10px;flex-shrink:0;transition:border-color .2s}
+.port-slot.active{border-color:var(--green)}
+.port-slot .ps-val{font-family:'Space Mono',monospace;color:var(--gold);font-weight:700;font-size:10px}
+.port-slot .ps-dash{font-family:'Space Mono',monospace;color:var(--dim2);font-size:10px}
+/* wealth chip */
+.wealth-display{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.wealth-label{font-size:12px}
+.wealth-val{font-family:'Space Mono',monospace;font-size:15px;color:var(--gold);font-weight:700}
+/* color picker dots */
+.color-strip{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.c-dot{width:13px;height:13px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .12s,border-color .12s;flex-shrink:0}
+.c-dot.sel{border-color:var(--text);transform:scale(1.25)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--dim2);flex-shrink:0;transition:background .3s}
+
+/* PHASES — waiting/rules can scroll; answer/invest use overflow:hidden set inline */
+.phase{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:16px;text-align:center;overflow-y:auto}
+.phase-title{font-size:clamp(20px,6vw,32px)}
+.phase-sub{font-size:13px;color:var(--dim);max-width:360px;line-height:1.6}
+
+/* TIMER */
+.timer-ring{position:relative;width:64px;height:64px;flex-shrink:0;margin:0 auto}
+.timer-ring svg{transform:rotate(-90deg)}
+.timer-ring .track{fill:none;stroke:var(--line);stroke-width:5}
+.timer-ring .fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .9s linear,stroke .4s}
+.timer-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:18px;font-weight:700}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.08);opacity:1}}
+
+/* ANSWER PHASE */
+.ans-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:400px}
+.ans-card{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:16px 8px;transition:all .12s;cursor:pointer}
+.ans-card:active{transform:scale(.96)}
+.ans-card.sel{border-color:var(--green);background:rgba(0,255,163,.1)}
+.ans-card.disabled{opacity:.35;pointer-events:none}
+.ans-sym{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.ans-label{font-size:13px;font-weight:700;color:var(--dim)}
+.ans-card.sel .ans-label{color:var(--text)}
+.lock-btn{width:100%;max-width:380px;padding:15px;background:linear-gradient(135deg,var(--green),var(--green-dark));border:none;border-radius:14px;font-family:'Anton',sans-serif;font-size:18px;letter-spacing:.1em;color:#04140e;box-shadow:0 5px 0 var(--green-dark);transition:all .12s}
+.lock-btn:disabled{background:var(--panel2);color:var(--dim2);box-shadow:none;cursor:not-allowed}
+.lock-btn:not(:disabled):active{transform:translateY(3px);box-shadow:0 2px 0 var(--green-dark)}
+.locked-badge{background:rgba(0,255,163,.1);border:2px solid var(--green);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:700;color:var(--green)}
+
+/* INVEST PHASE */
+.stock-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:400px}
+.stock-btn{display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:14px 8px;transition:all .12s;position:relative;cursor:pointer}
+.stock-btn.disabled-card{cursor:not-allowed}
+.stock-btn:not([disabled]):not(.expanded):active{transform:scale(.96)}
+.stock-btn.sel{border-color:var(--green);background:rgba(0,255,163,.1)}
+.stock-btn.locked-choice{border-color:var(--gold)}
+.stock-btn[disabled]{opacity:.3;cursor:not-allowed}
+.stock-btn.dimmed{opacity:.7}
+.stock-btn.expanded{grid-column:1/-1;border-color:var(--green);background:rgba(0,255,163,.07);padding:14px 12px}
+.stock-invested-badge{font-family:'Space Mono',monospace;font-size:10px;color:var(--green);font-weight:700;background:rgba(0,255,163,.12);border-radius:6px;padding:2px 7px;margin-top:2px}
+.stepper-row{display:flex;align-items:center;gap:10px;width:100%;margin-top:6px}
+.stepper-btn{width:42px;height:42px;border-radius:11px;background:var(--panel2);border:1.5px solid var(--line);color:var(--text);font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .1s}
+.stepper-btn:active:not(:disabled){transform:scale(.9)}
+.stepper-btn:disabled{opacity:.25;cursor:not-allowed}
+.stepper-val-wrap{flex:1;display:flex;align-items:center;justify-content:center;gap:2px;background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;padding:4px 8px}
+.stepper-dollar{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--gold)}
+.stepper-val{width:100%;text-align:center;font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--gold);background:none;border:none;outline:none;-moz-appearance:textfield}
+.stepper-val::-webkit-outer-spin-button,.stepper-val::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stepper-max{font-size:10px;color:var(--dim2);font-family:'Space Mono',monospace;text-align:center;margin-top:2px}
+.stepper-confirm{width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,var(--green),var(--green-dark));border:none;border-radius:12px;font-family:'Anton',sans-serif;font-size:15px;letter-spacing:.08em;color:#04140e;box-shadow:0 4px 0 var(--green-dark);transition:all .12s}
+.stepper-confirm:disabled{background:var(--panel2);color:var(--dim2);box-shadow:none;cursor:not-allowed}
+.stepper-confirm:not(:disabled):active{transform:translateY(3px);box-shadow:0 1px 0 var(--green-dark)}
+.safe-btn{width:100%;max-width:400px;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--panel);border:2px solid rgba(255,200,61,.3);border-radius:14px;padding:14px;font-size:15px;font-weight:800;color:var(--gold);transition:all .12s}
+.safe-btn.sel{background:rgba(255,200,61,.1);border-color:var(--gold)}
+.safe-btn:active{transform:scale(.96)}
+.safe-btn.dimmed{opacity:.7}
+
+/* LOCKED/REVEALED */
+.jp-note{display:block;color:var(--dim);font-size:12px;margin-top:5px;line-height:1.65;padding-left:8px;border-left:2px solid var(--green);opacity:.85}
+.rules-mini{width:100%;max-width:380px;background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;text-align:left}
+.rules-mini-title{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:800;text-align:center;margin-bottom:2px}
+.rules-mini-step{display:flex;gap:10px;align-items:flex-start}
+.rules-mini-num{font-family:'Anton',sans-serif;font-size:18px;color:var(--green);width:22px;flex-shrink:0;text-align:center}
+.rules-mini-body{font-size:13px;line-height:1.6;color:rgba(234,238,244,.85)}
+.reveal-btn{padding:14px 28px;background:var(--panel2);border:2px solid var(--gold);border-radius:14px;font-family:'Anton',sans-serif;font-size:16px;letter-spacing:.08em;color:var(--gold)}
+.reveal-btn:active{transform:scale(.96)}
+.reveal-card{background:var(--panel);border:3px solid var(--line);border-radius:18px;padding:22px 32px;display:flex;flex-direction:column;align-items:center;gap:7px;animation:revealPop .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes revealPop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.newround-btn{padding:14px 28px;background:var(--panel2);border:2px solid var(--gold);border-radius:14px;font-family:'Anton',sans-serif;font-size:16px;letter-spacing:.08em;color:var(--gold)}
+.newround-btn:active{transform:scale(.96)}
+
+/* ── TABLET LAYOUT (min-width: 600px) ───────────────────────────────────── */
+@media (min-width:600px){
+  /* Setup screen */
+  .setup-box{max-width:520px;gap:20px}
+  .setup-title{font-size:32px}
+  .setup-sub{font-size:14px}
+  .field-group label{font-size:12px}
+  .field-group input[type=text]{font-size:18px;padding:14px 16px;border-radius:13px}
+  .color-dot{width:44px;height:44px}
+  .start-btn{font-size:22px;padding:18px;border-radius:16px}
+
+  /* Header */
+  .term-top{padding:9px 16px;gap:8px}
+  .me-dot{width:13px;height:13px}
+  .me-name{font-size:15px;max-width:120px}
+  .wealth-val{font-size:19px}
+  .c-dot{width:17px;height:17px}
+  .color-strip{gap:5px}
+  .sync-dot{width:9px;height:9px}
+  .port-slot{padding:4px 10px;font-size:12px;border-radius:9px}
+  .port-slot .ps-val{font-size:12px}
+
+  /* Phase area */
+  .phase{gap:20px;padding:24px}
+  .phase-title{font-size:clamp(28px,5vw,44px)}
+  .phase-sub{font-size:16px;max-width:520px}
+
+  /* Timer */
+  .timer-ring{width:90px;height:90px}
+  .timer-ring .track{stroke-width:7}
+  .timer-ring .fill{stroke-width:7}
+  .timer-num{font-size:26px}
+
+  /* Answer grid */
+  .ans-grid{max-width:560px;gap:14px}
+  .ans-card{padding:24px 12px;border-radius:20px;gap:12px;border-width:2.5px}
+  .ans-sym{width:72px;height:72px;border-radius:16px}
+  .ans-label{font-size:16px}
+  .lock-btn{max-width:480px;padding:19px;font-size:22px;border-radius:18px}
+
+  /* Invest phase */
+  .stock-btns{max-width:560px;gap:12px}
+  .stock-btn{padding:20px 12px;border-radius:18px;gap:8px}
+  .stock-invested-badge{font-size:13px;padding:3px 10px}
+  .stepper-row{gap:14px;margin-top:10px}
+  .stepper-btn{width:58px;height:58px;font-size:28px;border-radius:15px}
+  .stepper-dollar{font-size:30px}
+  .stepper-val{font-size:36px}
+  .stepper-max{font-size:13px}
+  .stepper-confirm{padding:17px;font-size:20px;border-radius:16px}
+  .safe-btn{max-width:560px;padding:20px;font-size:19px;border-radius:18px;margin-top:12px}
+
+  /* Waiting/rules */
+  .rules-mini{max-width:560px;padding:20px;gap:14px;border-radius:18px}
+  .rules-mini-title{font-size:13px;margin-bottom:4px}
+  .rules-mini-num{font-size:24px;width:28px}
+  .rules-mini-body{font-size:14px;line-height:1.6}
+  .jp-note{font-size:13px}
+
+  /* Result/reveal cards */
+  .reveal-card{padding:30px 48px;border-radius:24px;gap:10px}
+  .reveal-btn{padding:18px 36px;font-size:20px;border-radius:18px}
+  .newround-btn{padding:18px 36px;font-size:20px;border-radius:18px}
+  .locked-badge{padding:16px 28px;font-size:18px;border-radius:16px}
+
+  /* Floating music btn */
+  .floating-music-btn{width:50px;height:50px;font-size:19px}
+
+  /* Inline-style overrides for tablet — targets elements sized via JS/inline */
+  .stock-btn .stock-invested-badge{font-size:13px;padding:4px 10px}
+  .locked-badge{font-size:18px;padding:16px 28px}
+  .reveal-card div[style*="font-size:32px"]{font-size:42px !important}
+
+  /* Waiting screen name display */
+  #waitNameRow span{font-size:15px !important}
+  #waitNameRow button{font-size:17px !important}
+
+  /* Answered/result screens */
+  .phase .wait-icon{font-size:clamp(50px,10vw,88px) !important}
+
+  /* Season wait */
+  .phase-title{font-size:clamp(28px,5vw,48px)}
+
+  /* Make stock name text bigger in invest cards */
+  .stock-btn div[style*="font-size:11px"]{font-size:15px !important}
+  .stock-btn div[style*="font-size:9px"]{font-size:12px !important}
+  .stock-btn div[style*="font-size:13px"]{font-size:16px !important}
+}
+
+/* Rules overlay */
+#rulesOverlay{position:fixed;inset:0;z-index:200;background:rgba(4,14,11,.96);display:none;flex-direction:column;align-items:center;overflow-y:auto;padding:20px 16px 40px}
+#rulesOverlay.open{display:flex}
+.rules-overlay-title{font-family:'Anton',sans-serif;font-size:22px;letter-spacing:.1em;color:var(--green);margin-bottom:16px;text-align:center}
+.rules-overlay-close{position:fixed;top:14px;right:16px;background:var(--panel2);border:1.5px solid var(--line);border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;color:var(--dim);display:flex;align-items:center;justify-content:center;z-index:201}
+</style>
+</head>
+<body>
+
+<div id="splash" onclick="hideSplash()">
+  <div class="sp-content">
+    <div class="sp-emoji">📈</div>
+    <div class="sp-title display">STOCK<span class="accent"> UP!</span></div>
+    <div class="sp-sub">Investment Game</div>
+    <div class="sp-tap">TAP TO BEGIN</div>
+  </div>
+</div>
+
+<div id="setupScreen" class="screen">
+  <div class="setup-box">
+    <div class="setup-title display">JOIN THE MARKET　/ 参加する</div>
+    <div class="setup-sub">名前と色を選んでください。あとは大画面に合わせて自動で同期されます。<br>Enter your name and pick a color. Everything else syncs from the main screen.</div>
+    <div class="field-group">
+      <label>Your Name　/ あなたの名前</label>
+      <input id="nameInput" type="text" placeholder="Your name / 名前" maxlength="16">
+    </div>
+    <div class="field-group">
+      <label>Your Color　/ カラー</label>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+    <button class="start-btn" onclick="registerAndStart()">▶ JOIN GAME　/ ゲームに参加</button>
+  </div>
+</div>
+
+<div id="terminalScreen" class="screen">
+  <div class="term-top">
+    <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden">
+      <span class="me-dot" id="meDot" style="flex-shrink:0"></span>
+      <span class="me-name" id="meName" style="flex-shrink:0"></span>
+      <div class="port-inline" id="portBar"></div>
+    </div>
+    <div class="wealth-display" style="flex-shrink:0">
+      <span class="wealth-label">💰</span>
+      <span class="wealth-val" id="wealthVal">$0</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;flex:1;justify-content:flex-end;min-width:0">
+      <div class="color-strip" id="colorStrip"></div>
+      <span class="sync-dot" id="syncDot"></span>
+      <button onclick="openRulesOverlay()" style="background:none;border:1.5px solid var(--line);border-radius:10px;color:var(--dim);font-size:12px;font-weight:800;padding:6px 11px;cursor:pointer;line-height:1.3;white-space:nowrap;flex-shrink:0;text-align:center">RULES<br><span style="font-size:10px;font-weight:400;color:var(--dim2)">ルール</span></button>
+    </div>
+  </div>
+  <div id="phaseArea" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+</div>
+
+<script>
+// ── SYMBOLS ──────────────────────────────────────────────────────────────────
+function symHTML(i,size=44){
+  const s=SYMS[i],r=size>30?'10px':'6px';
+  if(s.shape==='triangle'){const b=Math.round(size*.38),h=Math.round(size*.64);return`<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;background:${s.bg};border-radius:${r}"><div style="width:0;height:0;border-left:${b}px solid transparent;border-right:${b}px solid transparent;border-bottom:${h}px solid ${s.color}"></div></div>`;}
+  const shapes={circle:`border-radius:50%`,diamond:`transform:rotate(45deg);border-radius:3px`,square:`border-radius:${r}`};
+  return`<div style="width:${size}px;height:${size}px;background:${s.color};${shapes[s.shape]};opacity:.9"></div>`;
+}
+// Mirror of projector themes — keeps stock colours and player colours in sync
+const PROJ_THEMES=[
+  {tA:'#00ffa3',tB:'#4cc9f0'},
+  {tA:'#ff5600',tB:'#0a85e0'},
+  {tA:'#f72585',tB:'#55e000'},
+  {tA:'#ff3892',tB:'#00c8a0'},
+  {tA:'#ffe000',tB:'#7b00d4'},
+  {tA:'#00d476',tB:'#ff4dab'},
+  {tA:'#ff7800',tB:'#00aaff'},
+  {tA:'#cc2200',tB:'#0055cc'}
+];
+let _projThemeIdx=0;
+
+function applyProjectorTheme(idx){
+  _projThemeIdx=idx;
+  // Stock colors now come directly from projector via stockColors broadcast
+  if(document.getElementById('terminalScreen')?.classList.contains('active'))renderPhase();
+}
+
+const SYMS=[
+  {color:'#4cc9f0',bg:'rgba(76,201,240,.18)',shape:'circle'},
+  {color:'#f72585',bg:'rgba(247,37,133,.18)',shape:'diamond'},
+  {color:'#ffd60a',bg:'rgba(255,214,10,.18)',shape:'triangle'},
+  {color:'#80ed99',bg:'rgba(128,237,153,.18)',shape:'square'}
+];
+let STOCK_COLORS=['#ff9f40','#a78bfa','#ff8fa3','#4ecdc4'];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let _tid=localStorage.getItem('suTid2');
+if(!_tid){_tid='T-'+Math.random().toString(36).slice(2,8);localStorage.setItem('suTid2',_tid)}
+function loadProfile(){
+  try{const r=localStorage.getItem('suProfile2');if(r)return JSON.parse(r)}catch(e){}
+  return{name:'',colorIdx:0};
+}
+function saveProfile(){try{localStorage.setItem('suProfile2',JSON.stringify({name:myName,colorIdx:myColorIdx}))}catch(e){}}
+
+let myName='', myColorIdx=0;
+const p=loadProfile();myName=p.name;myColorIdx=p.colorIdx;
+
+// synced from projector
+// stock symbols — bold initial letter badges, distinct from answer shapes
+function stockSymSVG(i,size=28){
+  const c=STOCK_COLORS[i];
+  const name=stocks[i]?stocks[i].name:'Stock';
+  const letter=(name.trim()[0]||'S').toUpperCase();
+  const fs=Math.round(size*.52);
+  return`<svg width="${size}" height="${size}" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="7" fill="${c}22" stroke="${c}" stroke-width="2.5"/><text x="16" y="21" text-anchor="middle" font-family="Arial Black,sans-serif" font-weight="900" font-size="${fs}" fill="${c}">${letter}</text></svg>`;
+}
+
+let stocks=[{name:'Stock 1'},{name:'Stock 2'},{name:'Stock 3'},{name:'Stock 4'}];
+let cash=3, portfolio=[0,0,0,0], timerSec=20;
+let SEASON_CASH=[2,3,4,5], _lastSeasonCash=2; // tracks cash awarded last reveal
+let _termTimerSec=0;
+let lastInvestStock=null;
+let wasCorrect=null, _lastEarned=null;
+let _allPlayerCash={};
+let _lastSeasonMults=null; // [{val,label,cls}] indexed by stock
+let _lastPortfolio=[0,0,0,0]; // snapshot of portfolio at season end
+
+// per-round
+let phase='waiting';      // waiting|answer|answered|invest|locked|revealed|seasonwait
+let answerChoice=null;
+
+let investChoice=null;
+let investAmount=0;
+let answerLocked=false;
+let currentSlideType=null;
+let currentSlideS=null,currentSlideQ=null;
+
+function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function totalWealth(){return cash+portfolio.reduce((s,v)=>s+v,0)}
+function updateHeader(){
+  document.getElementById('wealthVal').textContent='$'+cash;
+  const el=document.getElementById('portBar');
+  if(!el)return;
+  el.innerHTML=stocks.map((st,i)=>{
+    const amt=portfolio[i];
+    return`<div class="port-slot${amt>0?' active':''}">
+      <span style="display:flex;align-items:center">${stockSymSVG(i,13)}</span>
+      <span style="font-size:9px;color:${amt>0?STOCK_COLORS[i]:'var(--dim2)'};font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40px">${esc(st.name)}</span>
+      ${amt>0?`<span class="ps-val">$${amt}</span>`:`<span class="ps-dash">—</span>`}
+    </div>`;
+  }).join('');
+}
+
+function renderTermTimer(sec){
+  const pct=timerSec>0?sec/timerSec:0;
+  const r=26,circ=2*Math.PI*r;
+  const color=pct>0.5?'var(--green)':pct>0.25?'var(--gold)':'var(--red)';
+  return`<div class="timer-ring">
+    <svg width="64" height="64" viewBox="0 0 64 64">
+      <circle class="track" cx="32" cy="32" r="${r}"/>
+      <circle class="fill" cx="32" cy="32" r="${r}"
+        stroke="${color}"
+        stroke-dasharray="${circ.toFixed(2)}"
+        stroke-dashoffset="${(circ*(1-pct)).toFixed(2)}"/>
+    </svg>
+    <div class="timer-num" style="color:${color}">${sec}</div>
+  </div>`;
+}
+function updateTermTimerEl(){
+  const el=document.getElementById('termTimerEl');
+  if(el)el.outerHTML=renderTermTimer(_termTimerSec); // replace so transition fires
+  // querySelector again since we replaced it
+  const el2=document.getElementById('termTimerEl');
+  // use id on inner circle for transition
+}
+// simpler: just update the num and stroke
+function patchTermTimer(){
+  const numEl=document.querySelector('#termTimerEl .timer-num');
+  const fillEl=document.querySelector('#termTimerEl .fill');
+  if(!numEl||!fillEl)return;
+  const pct=timerSec>0?_termTimerSec/timerSec:0;
+  const r=26,circ=2*Math.PI*r;
+  const color=pct>0.5?'var(--green)':pct>0.25?'var(--gold)':'var(--red)';
+  numEl.textContent=_termTimerSec;
+  numEl.style.color=color;
+  fillEl.style.stroke=color;
+  fillEl.style.strokeDashoffset=(circ*(1-pct)).toFixed(2);
+}
+
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+function hideSplash(){
+  const sp=document.getElementById('splash');sp.classList.add('hide');
+  setTimeout(()=>{
+    sp.style.display='none';
+    if(myName)showTerminal();else showSetup();
+  },450);
+}
+function showSetup(){
+  document.getElementById('setupScreen').classList.add('active');
+  document.getElementById('terminalScreen').classList.remove('active');
+  document.getElementById('nameInput').value=myName||'';
+  renderColorRow();
+}
+function renderColorRow(){
+  // Setup screen: show 8 theme swatches with split-diagonal preview
+  document.getElementById('colorRow').innerHTML=PROJ_THEMES.map((t,i)=>`
+    <div onclick="selectColor(${i})" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer">
+      <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,${t.tA} 50%,${t.tB} 50%);border:3px solid ${i===myColorIdx?'#fff':'transparent'};transition:all .15s"></div>
+    </div>`).join('');
+}
+function selectColor(i){myColorIdx=i;renderColorRow();applyPlayerTheme();}
+function renderColorStrip(){
+  const strip=document.getElementById('colorStrip');
+  if(!strip)return;
+  strip.innerHTML=PROJ_THEMES.map((t,i)=>
+    `<div class="c-dot${i===myColorIdx?' sel':''}" style="background:linear-gradient(135deg,${t.tA} 50%,${t.tB} 50%)" onclick="pickColor(${i})"></div>`
+  ).join('');
+}
+function pickColor(i){
+  myColorIdx=i;
+  saveProfile();
+  document.getElementById('meDot').style.background=PROJ_THEMES[i].tA;
+  applyPlayerTheme();
+  renderColorStrip();
+  publishRegister();
+}
+function registerAndStart(){
+  myName=document.getElementById('nameInput').value.trim()||'Player';
+  saveProfile();
+  showTerminal();
+  publishRegister();
+}
+function showTerminal(){
+  document.getElementById('setupScreen').classList.remove('active');
+  document.getElementById('terminalScreen').classList.add('active');
+  document.getElementById('meDot').style.background=PROJ_THEMES[myColorIdx%PROJ_THEMES.length].tA;
+  document.getElementById('meName').textContent=myName;
+  renderColorStrip();
+  applyPlayerTheme();
+  updateHeader();
+  setPhase('waiting');
+}
+
+// ── PLAYER THEME ──────────────────────────────────────────────────────────────
+// Same colour math as projector — player colour = tA, derive tB + triadic hues
+function hexToHsl(hex){
+  let r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;
+  let h=0,s=0;
+  if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h/=6;}
+  return[h*360,s*100,l*100];
+}
+function hslToHex(h,s,l){
+  s/=100;l/=100;const a=s*Math.min(l,1-l);
+  const f=n=>{const k=(n+h/30)%12;return l-a*Math.max(Math.min(k-3,9-k,1),-1);};
+  return'#'+[f(0),f(8),f(4)].map(x=>Math.round(Math.max(0,Math.min(1,x))*255).toString(16).padStart(2,'0')).join('');
+}
+function hexToRgba(hex,a){
+  const[r,g,b]=[1,3,5].map(o=>parseInt(hex.slice(o,o+2),16));
+  return`rgba(${r},${g},${b},${a})`;
+}
+function dimHex(hex,f){
+  return'#'+[1,3,5].map(o=>Math.min(255,Math.round(parseInt(hex.slice(o,o+2),16)*f)).toString(16).padStart(2,'0')).join('');
+}
+
+function applyPlayerTheme(){
+  const t=PROJ_THEMES[myColorIdx%PROJ_THEMES.length];
+  const tA=t.tA,tB=t.tB;
+  const root=document.documentElement;
+  root.style.setProperty('--green',tA);
+  root.style.setProperty('--green-dark',dimHex(tA,.55));
+  root.style.setProperty('--gold',tB);
+  const safeToRerender=!['waiting','answered','invested','result','seasonwait'].includes(phase);
+  if(document.getElementById('terminalScreen')?.classList.contains('active')&&safeToRerender)renderPhase();
+}
+
+// ── PHASE ENGINE ──────────────────────────────────────────────────────────────
+function setPhase(p){phase=p;renderPhase()}
+function renderPhase(){
+  const area=document.getElementById('phaseArea');
+  if(!area)return;
+  area.innerHTML='';
+  const fns={
+    waiting:phaseWaiting,answer:phaseAnswer,answered:phaseAnswered,
+    result:phaseResult,invest:phaseInvest,invested:phaseInvested,
+    seasonwait:phaseSeasonWait,rankview:phaseRankView,seasonready:phaseSeasonReady
+  };
+  try{
+    if(fns[phase])area.appendChild(fns[phase]());
+  }catch(e){
+    console.error('renderPhase error in phase',phase,e);
+    area.innerHTML=`<div style="padding:20px;color:var(--red);font-family:'Space Mono',monospace;font-size:12px">Error: ${e.message}</div>`;
+  }
+  updateHeader();
+}
+
+function newRound(){
+  answerChoice=null;wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
+  setPhase('waiting');
+}
+
+function phaseWaiting(){
+  const div=document.createElement('div');div.className='phase';
+  div.style.justifyContent='flex-start';div.style.paddingTop='16px';div.style.gap='10px';
+  div.innerHTML=`
+    <div style="text-align:center">
+      <div class="wait-icon" style="animation:pulse 2s ease-in-out infinite;font-size:clamp(40px,8vw,72px)">⏳</div>
+      <div class="phase-title display">WAITING / 待機中</div>
+      <div class="phase-sub">先生が始めるまで待ってください。<br>Make sure you see your name on the main screen!</div>
+      <div id="waitNameRow" style="display:inline-flex;align-items:center;gap:7px;margin-top:6px">
+        <span id="waitNameDisplay" style="font-size:14px;font-weight:800;color:var(--text);font-family:'Space Mono',monospace;background:var(--panel2);border:2px solid var(--line);border-radius:8px;padding:5px 10px;min-width:90px;text-align:center">${esc(myName)}</span>
+        <button type="button" id="waitEditBtn" style="background:var(--panel2);border:2px solid var(--line);border-radius:8px;color:var(--text);font-size:16px;cursor:pointer;padding:5px 8px;line-height:1">✏️</button>
+      </div>
+    </div>
+    <div class="rules-mini">
+      <div class="rules-mini-title">HOW TO PLAY　遊び方</div>
+      <div class="rules-mini-step"><div class="rules-mini-num">1</div><div class="rules-mini-body"><b>Answer &amp; earn</b> — correct answer earns the full season cash; wrong answer earns half (rounded up).<br><span class="jp-note">問題に正解すると全額、不正解でも半額（端数は切り上げ）がもらえます。諦めないで！</span></div></div>
+      <div class="rules-mini-step"><div class="rules-mini-num">2</div><div class="rules-mini-body"><b>Invest freely</b> — after every question, put any amount into any stock, or <b>Stay Safe</b> to protect your cash. Use + / − or type the amount.<br><span class="jp-note">問題のあとは、好きな株に好きな金額を投資できます。「セーフ」を選べばお金をそのまま守れます。金額は入力か＋/−で調整してください。</span></div></div>
+      <div class="rules-mini-step"><div class="rules-mini-num">3</div><div class="rules-mini-body"><b>Season end</b> — after 4 questions, each stock reveals a multiplier: ×0 crash · ×0.5 dip · ×2 rise · ×3 boom. Your invested cash is multiplied and returned.<br><span class="jp-note">4問が終わると各株に倍率が発表されます。×0なら全額失い、×0.5なら半分、×2なら2倍、×3なら3倍になって戻ります。</span></div></div>
+      <div class="rules-mini-step"><div class="rules-mini-num">4</div><div class="rules-mini-body"><b>Heat</b> — the ticker shows live ×3 and ×0 odds. <span style="color:#4cc9f0">Blue</span> = neutral. <span style="color:#ff3b5c">Red</span> = recently boomed (×3 less likely). <span style="color:#00ffa3">Green</span> = recently crashed (×3 more likely).<br><span class="jp-note">画面上部のバーで各株の確率を確認。青＝中立、赤＝最近ブームあり（×3が出にくい）、緑＝最近クラッシュあり（×3が出やすい）。</span></div></div>
+      <div class="rules-mini-step"><div class="rules-mini-num">5</div><div class="rules-mini-body"><b>Win</b> — most total wealth (cash + investments) after all seasons wins.<br><span class="jp-note">全シーズン終了後、手持ちの現金と投資中のお金の合計が最も多いプレイヤーが優勝です！</span></div></div>
+    </div>`;
+  // wire the inline name editor
+  const nameRow=div.querySelector('#waitNameRow');
+
+  function openNameEdit(){
+    nameRow.innerHTML=`
+      <input id="waitNameInput" type="text" maxlength="16" value="${esc(myName)}"
+        style="background:var(--panel2);border:2px solid var(--green);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;padding:5px 10px;outline:none;width:130px;text-align:center">
+      <button type="button" id="waitSaveBtn" style="background:var(--green);color:#04140e;border:none;border-radius:8px;font-size:13px;font-weight:800;padding:5px 10px;cursor:pointer">✓</button>`;
+    const inp=nameRow.querySelector('#waitNameInput');
+    inp.focus();inp.select();
+    nameRow.querySelector('#waitSaveBtn').onclick=saveName;
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')saveName();if(e.key==='Escape')restoreDisplay();});
+  }
+  function saveName(){
+    const inp=nameRow.querySelector('#waitNameInput');
+    const v=(inp?inp.value.trim():'')||myName;
+    myName=v;saveProfile();
+    document.getElementById('meName').textContent=myName;
+    publishRegister();
+    restoreDisplay();
+  }
+  function restoreDisplay(){
+    nameRow.innerHTML=`
+      <span style="font-size:14px;font-weight:800;color:var(--text);font-family:'Space Mono',monospace;background:var(--panel2);border:2px solid var(--line);border-radius:8px;padding:5px 10px;min-width:90px;text-align:center">${esc(myName)}</span>
+      <button type="button" style="background:var(--panel2);border:2px solid var(--line);border-radius:8px;color:var(--text);font-size:16px;cursor:pointer;padding:5px 8px;line-height:1">✏️</button>`;
+    nameRow.querySelector('button').addEventListener('click',openNameEdit);
+  }
+  div.querySelector('#waitEditBtn').addEventListener('click',openNameEdit);
+  return div;
+}
+function phaseAnswer(){
+  const div=document.createElement('div');div.className='phase';
+  div.innerHTML=`
+    <div class="phase-title display">YOUR ANSWER　/ 答えを選ぶ</div>
+    <div class="phase-sub">大画面を見て答えをタップ。<br>Look at the big screen and tap your answer.</div>
+    <div class="ans-grid" id="ansGrid"></div>
+    <button class="lock-btn" id="lockAnsBtn" ${answerChoice===null?'disabled':''} onclick="lockAnswer()">🔒 LOCK IN ANSWER</button>`;
+  div.querySelector('#ansGrid').innerHTML=SYMS.map((_,i)=>`
+    <div class="ans-card ${answerChoice===i?'sel':''}" onclick="selectAnswer(${i})">
+      <div class="ans-sym" style="background:${SYMS[i].bg}">${symHTML(i,48)}</div>
+      <div class="ans-label">Choice ${i+1}</div>
+    </div>`).join('');
+  return div;
+}
+function selectAnswer(i){if(answerLocked)return;answerChoice=i;renderPhase();}
+function lockAnswer(){
+  if(answerChoice===null||answerLocked)return;
+  answerLocked=true;
+  publishAnswer(answerChoice);
+  setPhase('answered');
+}
+function phaseResult(){
+  const div=document.createElement('div');div.className='phase';
+  if(wasCorrect){
+    div.innerHTML=`
+      <div style="font-size:80px;animation:spIn .4s cubic-bezier(.34,1.56,.64,1) both">✅</div>
+      <div class="phase-title display" style="color:var(--green);font-size:clamp(28px,8vw,48px)">CORRECT!　/ 正解！</div>
+      <div class="phase-sub">+$${_lastEarned??_lastSeasonCash} added to your wallet.<br>$${_lastEarned??_lastSeasonCash}がウォレットに追加されました。</div>
+      <div style="font-size:12px;color:var(--dim2);font-family:'Space Mono',monospace;margin-top:4px">Wait for the teacher to continue...</div>`;
+  } else {
+    div.innerHTML=`
+      <div style="font-size:80px;animation:spIn .4s cubic-bezier(.34,1.56,.64,1) both">❌</div>
+      <div class="phase-title display" style="color:var(--red);font-size:clamp(28px,8vw,48px)">WRONG　/ 不正解</div>
+      <div class="phase-sub">+$${_lastEarned??_lastSeasonCash} added anyway — keep watching the board!<br>$${_lastEarned??_lastSeasonCash}はもらえます。答えを確認しましょう！</div>
+      <div style="font-size:12px;color:var(--dim2);font-family:'Space Mono',monospace;margin-top:4px">Wait for the teacher to continue...</div>`;
+  }
+  return div;
+}
+
+function phaseAnswered(){
+  const div=document.createElement('div');div.className='phase';
+  div.innerHTML=`
+    <div class="wait-icon" style="animation:none;font-size:54px">✅</div>
+    <div class="phase-title display">LOCKED IN　/ 送信済み</div>
+    <div class="phase-sub">先生が答えを見せるまで待ってください。<br>Waiting for the teacher to reveal the answer...</div>
+    <div class="locked-badge" style="display:flex;align-items:center;justify-content:center;gap:10px">${symHTML(answerChoice,28)} <span>Choice ${answerChoice+1}</span></div>`;
+  return div;
+}
+
+function phaseInvest(){
+  const div=document.createElement('div');div.className='phase';
+  const earnedMsg=wasCorrect===null?''
+    :wasCorrect
+      ?`<span style="color:var(--green)">✓ +$${_lastEarned||''}</span>`
+      :`<span style="color:var(--gold)">+$${_lastEarned||''} (less cash)</span>`;
+  div.innerHTML=`
+    <div class="phase-title display">INVEST　/ 投資 ${earnedMsg}</div>
+    <div class="phase-sub">好きな株に投資しよう！<br>Choose any stock to invest in, or Stay Safe.</div>
+    <div class="stock-btns" id="stockBtns"></div>`;
+  const grid=div.querySelector('#stockBtns');
+  const stockIsExpanded=investChoice!==null&&investChoice>=0;
+  stocks.forEach((st,i)=>{
+    const isExpanded=investChoice===i;
+    const seasonAmt=portfolio[i];
+    const btn=document.createElement('div');
+    btn.className=`stock-btn${isExpanded?' sel expanded':''}${stockIsExpanded&&!isExpanded?' dimmed':''}`;
+    if(isExpanded){
+      const amt=investAmount||0;
+      btn.innerHTML=`
+        <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:center">
+          <div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center">${stockSymSVG(i,26)}</div>
+          <div style="font-size:13px;font-weight:800;color:${STOCK_COLORS[i]}">${esc(st.name)}</div>
+        </div>
+        <div class="stepper-row">
+          <button type="button" class="stepper-btn" id="stepMinus" ${amt<=0?'disabled':''}>−</button>
+          <div class="stepper-val-wrap"><span class="stepper-dollar">$</span><input class="stepper-val" id="stepVal" type="number" inputmode="numeric" min="0" max="${cash}" value="${amt}"></div>
+          <button type="button" class="stepper-btn" id="stepPlus" ${amt>=cash?'disabled':''}>+</button>
+        </div>
+        <div class="stepper-max">max $${cash}</div>
+        <button type="button" class="stepper-confirm" id="stepConfirm" ${amt<=0?'disabled':''}>🔒 CONFIRM $${amt}</button>`;
+    } else {
+      btn.innerHTML=`<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">${stockSymSVG(i,28)}</div><div style="font-size:11px;font-weight:800;color:${STOCK_COLORS[i]};text-align:center">${esc(st.name)}</div>${seasonAmt>0?`<div class="stock-invested-badge">$${seasonAmt} this season</div>`:''}`;
+      btn.onclick=()=>{investChoice=i;investAmount=0;renderPhase();};
+    }
+    grid.appendChild(btn);
+  });
+  const safe=document.createElement('button');
+  safe.type='button';
+  safe.className=`safe-btn${investChoice===-1?' sel':''}${stockIsExpanded?' dimmed':''}`;
+  safe.innerHTML='✊ Stay Safe';
+  safe.onclick=()=>{investChoice=-1;investAmount=0;commitInvest();};
+  div.appendChild(safe);
+  // wire stepper controls — query within `div` itself, since it isn't attached
+  // to the document yet at this point (renderPhase appends it after this
+  // function returns), so document.getElementById would find nothing.
+  if(stockIsExpanded){
+    const dec=div.querySelector('#stepMinus');
+    const inc=div.querySelector('#stepPlus');
+    const valInput=div.querySelector('#stepVal');
+    const confirmBtn=div.querySelector('#stepConfirm');
+    // lightweight in-place updates (no full renderPhase) so the number input
+    // never loses focus/cursor position while the player is mid-type
+    function syncStepperUI(amt){
+      investAmount=amt;
+      if(valInput)valInput.value=amt;
+      if(dec)dec.disabled=amt<=0;
+      if(inc)inc.disabled=amt>=cash;
+      if(confirmBtn){confirmBtn.disabled=amt<=0;confirmBtn.textContent=`🔒 CONFIRM $${amt}`;}
+    }
+    if(dec)dec.onclick=()=>syncStepperUI(Math.max(0,(investAmount||0)-1));
+    if(inc)inc.onclick=()=>syncStepperUI(Math.min(cash,(investAmount||0)+1));
+    if(valInput){
+      valInput.addEventListener('input',()=>{
+        const raw=parseInt(valInput.value,10);
+        const clamped=isNaN(raw)?0:Math.max(0,Math.min(cash,raw));
+        investAmount=clamped;
+        if(dec)dec.disabled=clamped<=0;
+        if(inc)inc.disabled=clamped>=cash;
+        if(confirmBtn){confirmBtn.disabled=clamped<=0;confirmBtn.textContent=`🔒 CONFIRM $${clamped}`;}
+      });
+      valInput.addEventListener('blur',()=>{
+        // snap the displayed value back in range once they're done typing
+        valInput.value=investAmount||0;
+      });
+    }
+    if(confirmBtn)confirmBtn.onclick=()=>{if((investAmount||0)>0)commitInvest();};
+  }
+  return div;
+}
+function commitInvest(){
+  if(investChoice===null)return;
+  if(investChoice>=0){
+    const amt=Math.max(0,Math.min(investAmount||0,cash));
+    if(amt<=0)return; // shouldn't happen — confirm button is disabled at $0
+    cash-=amt;portfolio[investChoice]+=amt;
+    lastInvestStock=investChoice;
+    publishInvest(investChoice,amt);
+  } else {
+    publishInvest(-1,0); // tell projector: stayed safe
+  }
+  updateHeader();
+  setPhase('invested');
+}
+
+function phaseInvested(){
+  const div=document.createElement('div');div.className='phase';
+  let summary;
+  if(investChoice===-1){
+    summary=`<div style="font-size:40px">✊</div><div style="font-weight:800;color:var(--gold);font-size:16px">セーフ / Staying Safe</div>`;
+  } else {
+    const st=stocks[investChoice];
+    summary=`<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">${stockSymSVG(investChoice,40)}</div><div style="font-weight:800;color:var(--green);font-size:15px">${esc(st.name)}</div><div style="font-family:'Space Mono',monospace;font-size:13px;color:var(--dim)">$${investAmount} 投資済み / invested</div>`;
+  }
+  div.innerHTML=`
+    <div class="wait-icon" style="font-size:36px;animation:none">✅</div>
+    <div class="phase-title display" style="font-size:20px">DONE　/ 完了</div>
+    <div style="background:var(--panel);border:2px solid var(--green);border-radius:14px;padding:18px 24px;display:flex;flex-direction:column;align-items:center;gap:6px">${summary}</div>
+    <div class="phase-sub">次の問題を待ってください。<br>Wait for the next question.</div>`;
+  return div;
+}
+function newRound(){
+  answerChoice=null;wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
+  setPhase('waiting');
+}
+
+function phaseSeasonWait(){
+  const div=document.createElement('div');div.className='phase';
+  div.style.justifyContent='flex-start';div.style.paddingTop='12px';
+  const multColor={m0:'var(--red)',mhalf:'var(--gold)',m2:'var(--green)',m3:'var(--gold)'};
+  const stockRows=stocks.map((st,i)=>{
+    const invested=_lastPortfolio[i]||0;
+    const m=_lastSeasonMults?_lastSeasonMults[i]:null;
+    const returned=m&&invested>0?Math.ceil(invested*m.val):null;
+    const col=STOCK_COLORS[i];
+    const mCol=m?multColor[m.cls]||'var(--dim)':'var(--dim2)';
+    return`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)">
+      <span style="display:flex;align-items:center;flex-shrink:0">${stockSymSVG(i,28)}</span>
+      <span style="font-size:16px;font-weight:800;color:${col};flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(st.name)}</span>
+      <span style="font-family:'Space Mono',monospace;font-size:14px;color:${invested>0?'var(--gold)':'var(--dim2)'}">$${invested}</span>
+      ${m?`<span style="font-size:15px;font-weight:900;color:${mCol};background:${mCol}18;border-radius:6px;padding:3px 10px;white-space:nowrap">${m.label}</span>`:`<span style="color:var(--dim2);font-size:13px">—</span>`}
+      <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:${returned===null?'var(--dim2)':returned>=invested?'var(--green)':'var(--red)'}">${returned!==null?`→$${returned}`:'—'}</span>
+    </div>`;
+  }).join('');
+  const total=totalWealth();
+  // compute rank from _allPlayerCash
+  let rankStr='';
+  const entries=Object.entries(_allPlayerCash);
+  const rankEntries=entries.length>0?entries:[[_tid,{cash:total,portfolio:[]}]];
+  {
+    const sorted=rankEntries
+      .map(([id,d])=>({id,w:(d.cash||0)+(d.portfolio||[]).reduce((s,v)=>s+v,0)}))
+      .sort((a,b)=>b.w-a.w);
+    const rank=sorted.findIndex(e=>e.id===_tid)+1;
+    const total_players=sorted.length;
+    if(rank>0){
+      const medal=rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'';
+      const suffix=rank===1?'ST':rank===2?'ND':rank===3?'RD':'TH';
+      const col=rank===1?'var(--gold)':rank<=3?'#c0c0c0':'var(--dim)';
+      rankStr=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:10px 14px;width:100%;max-width:380px">
+        <span style="font-size:22px">${medal||'📊'}</span>
+        <span style="font-family:'Anton',sans-serif;font-size:20px;color:${col}">${rank}${suffix} PLACE</span>
+        <span style="font-size:12px;color:var(--dim)">of ${total_players}</span>
+      </div>`;
+    }
+  }
+  div.innerHTML=`
+    <div style="font-size:36px">🌸</div>
+    <div class="phase-title display" style="font-size:clamp(16px,4.5vw,24px)">SEASON END　/ シーズン終了</div>
+    <div class="phase-sub" style="font-size:11px">大画面を見てください！<br>Watch the big screen!</div>
+    <div style="background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:16px 18px;width:100%;max-width:380px">
+      <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800;margin-bottom:4px">Market Results / 市場結果</div>
+      ${stockRows}
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)">
+        <span style="font-size:22px;width:28px;text-align:center;flex-shrink:0">💵</span>
+        <span style="font-size:16px;font-weight:800;flex:1;color:var(--text)">Wallet / 財布</span>
+        <span style="font-family:'Space Mono',monospace;font-size:14px;color:var(--gold)">$${cash}</span>
+        <span style="font-size:15px;font-weight:900;color:var(--gold);background:rgba(255,200,61,.08);border-radius:6px;padding:3px 10px">kept</span>
+        <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--gold)">→$${cash}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;border-top:2px solid var(--line);margin-top:6px;background:rgba(255,200,61,.06);border-radius:8px;padding:10px 12px">
+        <span style="font-size:18px">💰</span>
+        <span style="font-size:13px;font-weight:900;flex:1">Total Wealth　/ 総資産</span>
+        <span style="font-family:'Space Mono',monospace;color:var(--gold);font-size:17px;font-weight:700">$${total}</span>
+      </div>
+    </div>
+    ${rankStr}`;
+  return div;
+}
+
+// ── ABLY ──────────────────────────────────────────────────────────────────────
+const ABLY_KEY='4ZBykA.Tuugsg:cgyxBZXHQyC7_2do0olX7UKSMSJi56RhILeV4mZOJCE';
+const ABLY_CHANNEL='stockup-room1';
+let _ch=null,_ablyReady=false;
+
+function initAbly(){
+  try{
+    const ably=new Ably.Realtime({key:ABLY_KEY,clientId:_tid});
+    _ch=ably.channels.get(ABLY_CHANNEL);
+    ably.connection.on('connected',()=>{
+      _ablyReady=true;
+      document.getElementById('syncDot').style.background='var(--green)';
+      if(myName)publishRegister();
+    });
+    ably.connection.on('disconnected',()=>{
+      _ablyReady=false;
+      document.getElementById('syncDot').style.background='var(--dim2)';
+    });
+
+    // projector sends updated settings (stocks, economy)
+    _ch.subscribe('settings-update',msg=>{
+      const d=msg.data;
+      stocks=d.stocks;if(d.seasonCash)SEASON_CASH=d.seasonCash;if(d.timerSec)timerSec=d.timerSec;
+      if(d.stockColors)STOCK_COLORS=d.stockColors;
+      if(d.themeIdx!=null)applyProjectorTheme(d.themeIdx);
+      else renderPhase();
+    });
+
+    // projector ticks the timer — just patch the UI element in place
+    _ch.subscribe('timer-tick',msg=>{
+      _termTimerSec=Math.max(0,msg.data.sec);
+      patchTermTimer();
+    });
+
+    // projector syncs full state back to this terminal on register
+    _ch.subscribe('state-sync',msg=>{
+      const d=msg.data;
+      if(d.targetId!==_tid)return;
+      stocks=d.stocks;if(d.seasonCash)SEASON_CASH=d.seasonCash;if(d.timerSec)timerSec=d.timerSec;
+      if(d.stockColors)STOCK_COLORS=d.stockColors;
+      if(d.themeIdx!=null)applyProjectorTheme(d.themeIdx);
+      cash=d.cash;portfolio=d.portfolio||[0,0,0,0];
+      lastInvestStock=d.lastInvestStock??null;
+      updateHeader();
+      // set phase based on current game slide
+      if(d.gameStarted&&d.slideType){
+        handleSlideChange({type:d.slideType,...(d.slideData||{})});
+      }
+    });
+
+    // projector changed slide
+    _ch.subscribe('slide-change',msg=>{
+      handleSlideChange(msg.data);
+    });
+
+    // answer revealed — projector tells us correct/wrong
+    // invest phase opens only after cash-update arrives with the new total
+    _ch.subscribe('answer-revealed',msg=>{
+      const d=msg.data;
+      const myResult=d.playerResults&&d.playerResults[_tid];
+      wasCorrect=myResult?(myResult.correct===true):false;
+      _lastEarned=myResult?myResult.earned:null;
+      if(d.seasonCash)_lastSeasonCash=d.seasonCash;
+      setPhase('result');
+    });
+
+    // projector pushes cash after reveal and after season payout
+    _ch.subscribe('cash-update',msg=>{
+      const d=msg.data;
+      if(d.updates&&d.updates[_tid]){
+        cash=d.updates[_tid].cash;
+        portfolio=d.updates[_tid].portfolio||[0,0,0,0];
+        // Don't update header during seasonwait — would spoil results before projector shows them
+        if(phase!=='seasonwait')updateHeader();
+      }
+      if(d.updates){
+        _allPlayerCash=d.updates;
+        // re-render seasonwait so rank badge appears as soon as data arrives
+        if(phase==='seasonwait')renderPhase();
+      }
+    });
+
+    // season reset
+    _ch.subscribe('season-results',msg=>{
+      const d=msg.data;
+      if(d.mults)_lastSeasonMults=d.mults;
+      updateHeader(); // now safe — projector is on highlights screen
+      if(phase==='seasonwait')renderPhase();
+    });
+
+    _ch.subscribe('season-reset',msg=>{
+      portfolio=[0,0,0,0];lastInvestStock=null;
+      // _lastSeasonMults and _lastPortfolio intentionally kept — seasonwait screen still showing
+      answerChoice=null;wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
+      updateHeader();
+      setPhase('waiting');
+    });
+
+  }catch(e){console.warn('Ably:',e)}
+}
+
+function handleSlideChange(d){
+  currentSlideType=d.type;
+  currentSlideS=d.s;currentSlideQ=d.q;
+  if(d.type==='question'){
+    answerChoice=null;answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
+    setPhase('answer');
+  } else if(d.type==='results'){
+    if(phase!=='result')setPhase('waiting');
+  } else if(d.type==='betweenq'){
+    setPhase('invest');
+  } else if(d.type==='seasonend'){
+    _lastPortfolio=portfolio.slice();
+    if(d.phase>=2&&d.isFinal){
+      setPhase('rankview');
+    } else {
+      setPhase('seasonwait');
+    }
+  } else if(d.type==='seasonintro'){
+    _lastSeasonMults=null;
+    _lastPortfolio=[0,0,0,0];
+    setPhase('seasonready');
+  } else if(d.type==='rules'){
+    answerChoice=null;answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
+    setPhase('waiting');
+  } else if(d.type==='victory'||d.type==='credits'){
+    setPhase('rankview');
+  }
+}
+
+function phaseSeasonReady(){
+  const div=document.createElement('div');div.className='phase';
+  const s=currentSlideS!=null?currentSlideS+1:'?';
+  div.innerHTML=`
+    <div style="font-size:56px;animation:pulse 2s ease-in-out infinite">🌱</div>
+    <div class="phase-title display" style="font-size:clamp(20px,6vw,34px)">SEASON ${s}　START!</div>
+    <div class="phase-sub">シーズン${s}が始まります！<br>New season starting — get ready for the first question!</div>
+    <div style="background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:12px 18px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">💰</span>
+      <span style="font-size:13px;font-weight:700;flex:1">Your Wealth　/ あなたの資産</span>
+      <span style="font-family:'Space Mono',monospace;color:var(--gold);font-size:16px">$${totalWealth()}</span>
+    </div>`;
+  return div;
+}
+
+function phaseRankView(){
+  const div=document.createElement('div');div.className='phase';
+  div.style.justifyContent='flex-start';div.style.paddingTop='12px';
+  // compute rank from all player cash data
+  let rank=null,total=0;
+  const entries=Object.entries(_allPlayerCash);
+  if(entries.length){
+    const sorted=entries.sort((a,b)=>(b[1].cash||0)-(a[1].cash||0));
+    rank=sorted.findIndex(([id])=>id===_tid)+1;
+    total=entries.length;
+  }
+  const myWealth=totalWealth();
+  const rankEmoji=['🥇','🥈','🥉'][rank-1]||`#${rank}`;
+  const rankColor=rank===1?'var(--gold)':rank===2?'#c0c0c0':rank===3?'#cd7f32':'var(--dim)';
+  div.innerHTML=`
+    <div style="font-size:50px">${rank===1?'🏆':rank===2?'🥈':rank===3?'🥉':'🎮'}</div>
+    <div class="phase-title display" style="font-size:clamp(18px,5vw,28px)">FINAL RESULTS　/ 最終結果</div>
+    ${rank?`<div style="font-size:clamp(28px,8vw,44px);font-weight:900;color:${rankColor};font-family:'Anton',sans-serif">${rankEmoji} ${rank===1?'1ST':rank===2?'2ND':rank===3?'3RD':`${rank}TH`} PLACE</div>`:''}
+    <div style="background:var(--panel);border:2px solid var(--gold);border-radius:12px;padding:16px 22px;display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;max-width:280px">
+      <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:800">Your Final Wealth</div>
+      <div style="font-family:'Space Mono',monospace;font-size:clamp(28px,8vw,44px);color:var(--gold);font-weight:700">$${myWealth}</div>
+      ${rank&&total?`<div style="font-size:11px;color:var(--dim)">${rank} of ${total} players</div>`:''}
+    </div>
+    <div style="font-size:12px;color:var(--dim2);text-align:center">お疲れ様でした！ Well played!</div>`;
+  return div;
+}
+
+function publishRegister(){
+  if(!_ablyReady||!_ch)return;
+  _ch.publish('player-register',{id:_tid,name:myName,colorIdx:myColorIdx});
+}
+function publishAnswer(choice){
+  if(!_ablyReady||!_ch)return;
+  _ch.publish('player-answer',{id:_tid,choice,s:currentSlideS,q:currentSlideQ});
+}
+function publishInvest(stockIdx,amount){
+  if(!_ablyReady||!_ch)return;
+  _ch.publish('player-invest',{id:_tid,stockIdx,amount,s:currentSlideS,q:currentSlideQ});
+}
+
+function openRulesOverlay(){
+  const el=document.getElementById('rulesOverlay');
+  if(el)el.classList.add('open');
+}
+function closeRulesOverlay(){
+  const el=document.getElementById('rulesOverlay');
+  if(el)el.classList.remove('open');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderColorRow();
+applyPlayerTheme();
+const ablyScript=document.createElement('script');
+ablyScript.src='https://cdn.ably.com/lib/ably.min-2.js';
+ablyScript.onload=initAbly;
+document.head.appendChild(ablyScript);
+</script>
+
+<!-- Rules Overlay -->
+<div id="rulesOverlay">
+  <button class="rules-overlay-close" onclick="closeRulesOverlay()">✕</button>
+  <div class="rules-overlay-title">📋 HOW TO PLAY　遊び方</div>
+  <div class="rules-mini" style="max-width:560px;width:100%">
+    <div class="rules-mini-step"><div class="rules-mini-num">1</div><div class="rules-mini-body"><b>Answer &amp; earn</b> — correct answer earns the full season cash; wrong answer earns half (rounded up).<br><span class="jp-note">問題に正解すると全額、不正解でも半額（端数は切り上げ）がもらえます。どちらでも必ずお金がもらえるので諦めないで！</span></div></div>
+    <div class="rules-mini-step"><div class="rules-mini-num">2</div><div class="rules-mini-body"><b>Invest freely</b> — after every question, put any amount into any stock, or <b>Stay Safe</b> to protect your cash. Use + / − or type the amount directly.<br><span class="jp-note">問題のあとは投資フェーズです。正解・不正解に関わらず、好きな株に好きな金額を投資できます。リスクを避けたい場合は「セーフ」を選んでお金をそのまま守りましょう。金額は入力か＋/−で調整できます。</span></div></div>
+    <div class="rules-mini-step"><div class="rules-mini-num">3</div><div class="rules-mini-body"><b>Season end</b> — after 4 questions, each stock reveals a random multiplier: ×0 crash · ×0.5 dip · ×2 rise · ×3 boom. Your invested cash is multiplied and returned to your wallet.<br><span class="jp-note">4問が終わるとシーズン終了です。各株にランダムな倍率が発表されます。×0なら全額失い、×0.5なら半分、×2なら2倍、×3なら3倍になって戻ってきます。</span></div></div>
+    <div class="rules-mini-step"><div class="rules-mini-num">4</div><div class="rules-mini-body"><b>Heat system</b> — the ticker on the main screen shows live ×3 and ×0 odds per stock. <span style="color:#4cc9f0">Blue</span> = neutral. <span style="color:#ff3b5c">Red</span> = recently boomed (×3 less likely next season). <span style="color:#00ffa3">Green</span> = recently crashed (×3 more likely). ×3 and ×0 always move inversely.<br><span class="jp-note">メイン画面上部のバーで、各株の×3と×0の確率をリアルタイムで確認できます。青＝中立、赤＝最近ブームがあった（次は×3が出にくい）、緑＝最近クラッシュがあった（×3が出やすい）。×3と×0の確率は常に逆方向に動きます。</span></div></div>
+    <div class="rules-mini-step"><div class="rules-mini-num">5</div><div class="rules-mini-body"><b>Win</b> — the player with the most total wealth (cash + investments) after all seasons wins.<br><span class="jp-note">全シーズン終了後、手持ちの現金と投資中のお金の合計が最も多いプレイヤーが優勝です。頑張ってください！</span></div></div>
+  </div>
+</div>
+</body>
+</html>
