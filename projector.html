@@ -997,7 +997,8 @@ function _enterSlide(s){
   // changing the instant the market slide loads.
   if(s.type==='seasonintro'){
     displayedStockHeat=stockHeat.slice();
-    broadcastSeasonReset(); // reset terminals now that we're moving to next season
+    broadcastSeasonReset();
+    broadcastSettings(); // sends updated heat to terminals
   }
   // music track follows the phase: energetic while answering, silent on reveal,
   // distinct-but-related track while investing, chill everywhere else
@@ -1671,7 +1672,7 @@ function initAbly(){
       // send them current game state so they can sync
       _ch.publish('state-sync',{
         targetId:d.id,
-        stocks,startCash,seasonCash:SEASON_CASH,themeIdx:activeTheme,stockColors:STOCK_COLORS,
+        stocks,startCash,seasonCash:SEASON_CASH,themeIdx:activeTheme,stockColors:STOCK_COLORS,stockHeat:displayedStockHeat,
         cash:players[d.id].cash,
         portfolio:players[d.id].portfolio,
         lastInvestStock:players[d.id].lastInvestStock,
@@ -1739,7 +1740,7 @@ function initAbly(){
 
 function broadcastSettings(){
   if(!_ch)return;
-  _ch.publish('settings-update',{stocks,startCash,timerSec,seasonCash:SEASON_CASH,themeIdx:activeTheme,stockColors:STOCK_COLORS});
+  _ch.publish('settings-update',{stocks,startCash,timerSec,seasonCash:SEASON_CASH,themeIdx:activeTheme,stockColors:STOCK_COLORS,stockHeat:displayedStockHeat});
   if(gameStarted)renderTicker();
 }
 function broadcastSlide(){

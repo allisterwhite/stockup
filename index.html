@@ -351,6 +351,18 @@ let wasCorrect=null, _lastEarned=null;
 let _allPlayerCash={};
 let _lastSeasonMults=null; // [{val,label,cls}] indexed by stock
 let _lastPortfolio=[0,0,0,0]; // snapshot of portfolio at season end
+let _termStockHeat=[0,0,0,0]; // received from projector
+
+function termHeatLabel(h){
+  const base=[10,35,35,20];
+  const clamped=Math.max(-2,Math.min(2,h));
+  const w=[Math.max(2,base[0]+5*clamped),Math.max(5,base[1]+5*clamped),Math.max(5,base[2]-5*clamped),Math.max(2,base[3]-5*clamped)];
+  const total=w.reduce((s,v)=>s+v,0);
+  const pct3=Math.round(w[3]/total*100);
+  const pct0=Math.round(w[0]/total*100);
+  const color=h===0?'#4cc9f0':h>0?'#ff3b5c':'#00ffa3';
+  return{color,pct3,pct0};
+}
 
 // per-round
 let phase='waiting';      // waiting|answer|answered|invest|locked|revealed|seasonwait
@@ -645,10 +657,12 @@ function phaseInvest(){
     btn.className=`stock-btn${isExpanded?' sel expanded':''}${stockIsExpanded&&!isExpanded?' dimmed':''}`;
     if(isExpanded){
       const amt=investAmount||0;
+      const h=termHeatLabel(_termStockHeat[i]||0);
       btn.innerHTML=`
-        <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:center">
+        <div style="display:flex;align-items:center;gap:8px;width:100%;justify-content:center;flex-wrap:wrap">
           <div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center">${stockSymSVG(i,26)}</div>
           <div style="font-size:13px;font-weight:800;color:${STOCK_COLORS[i]}">${esc(st.name)}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:11px;font-weight:800;color:${h.color};background:${h.color}18;border-radius:5px;padding:2px 7px;white-space:nowrap">×3 ${h.pct3}% · ×0 ${h.pct0}%</div>
         </div>
         <div class="stepper-row">
           <button type="button" class="stepper-btn" id="stepMinus" ${amt<=0?'disabled':''}>−</button>
@@ -658,7 +672,12 @@ function phaseInvest(){
         <div class="stepper-max">max $${cash}</div>
         <button type="button" class="stepper-confirm" id="stepConfirm" ${amt<=0?'disabled':''}>🔒 CONFIRM $${amt}</button>`;
     } else {
-      btn.innerHTML=`<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">${stockSymSVG(i,28)}</div><div style="font-size:11px;font-weight:800;color:${STOCK_COLORS[i]};text-align:center">${esc(st.name)}</div>${seasonAmt>0?`<div class="stock-invested-badge">$${seasonAmt} this season</div>`:''}`;
+      const h=termHeatLabel(_termStockHeat[i]||0);
+      btn.innerHTML=`
+        <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">${stockSymSVG(i,28)}</div>
+        <div style="font-size:12px;font-weight:800;color:${STOCK_COLORS[i]};text-align:center">${esc(st.name)}</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;font-weight:800;color:${h.color};background:${h.color}18;border-radius:5px;padding:3px 8px;white-space:nowrap">×3 ${h.pct3}% · ×0 ${h.pct0}%</div>
+        ${seasonAmt>0?`<div class="stock-invested-badge">$${seasonAmt} in</div>`:''}`;
       btn.onclick=()=>{investChoice=i;investAmount=0;renderPhase();};
     }
     grid.appendChild(btn);
@@ -830,6 +849,7 @@ function initAbly(){
       const d=msg.data;
       stocks=d.stocks;if(d.seasonCash)SEASON_CASH=d.seasonCash;if(d.timerSec)timerSec=d.timerSec;
       if(d.stockColors)STOCK_COLORS=d.stockColors;
+      if(d.stockHeat)_termStockHeat=d.stockHeat;
       if(d.themeIdx!=null)applyProjectorTheme(d.themeIdx);
       else renderPhase();
     });
@@ -846,6 +866,7 @@ function initAbly(){
       if(d.targetId!==_tid)return;
       stocks=d.stocks;if(d.seasonCash)SEASON_CASH=d.seasonCash;if(d.timerSec)timerSec=d.timerSec;
       if(d.stockColors)STOCK_COLORS=d.stockColors;
+      if(d.stockHeat)_termStockHeat=d.stockHeat;
       if(d.themeIdx!=null)applyProjectorTheme(d.themeIdx);
       cash=d.cash;portfolio=d.portfolio||[0,0,0,0];
       lastInvestStock=d.lastInvestStock??null;
