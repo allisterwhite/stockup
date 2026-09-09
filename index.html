@@ -556,7 +556,7 @@ function phaseWaiting(){
       <div class="rules-mini-step"><div class="rules-mini-num">1</div><div class="rules-mini-body"><b>Answer &amp; earn</b> — correct answer earns the full season cash; wrong answer earns half (rounded up).<br><span class="jp-note">問題に正解すると全額、不正解でも半額（端数は切り上げ）がもらえます。諦めないで！</span></div></div>
       <div class="rules-mini-step"><div class="rules-mini-num">2</div><div class="rules-mini-body"><b>Invest freely</b> — after every question, put any amount into any stock, or <b>Stay Safe</b> to protect your cash. Use + / − or type the amount.<br><span class="jp-note">問題のあとは、好きな株に好きな金額を投資できます。「セーフ」を選べばお金をそのまま守れます。金額は入力か＋/−で調整してください。</span></div></div>
       <div class="rules-mini-step"><div class="rules-mini-num">3</div><div class="rules-mini-body"><b>Season end</b> — after 4 questions, each stock reveals a multiplier: ×0 crash · ×0.5 dip · ×2 rise · ×3 boom. Your invested cash is multiplied and returned.<br><span class="jp-note">4問が終わると各株に倍率が発表されます。×0なら全額失い、×0.5なら半分、×2なら2倍、×3なら3倍になって戻ります。</span></div></div>
-      <div class="rules-mini-step"><div class="rules-mini-num">4</div><div class="rules-mini-body"><b>Heat</b> — the ticker shows live ×3 and ×0 odds. <span style="color:#4cc9f0">Blue</span> = neutral. <span style="color:#ff3b5c">Red</span> = recently boomed (×3 less likely). <span style="color:#00ffa3">Green</span> = recently crashed (×3 more likely).<br><span class="jp-note">画面上部のバーで各株の確率を確認。青＝中立、赤＝最近ブームあり（×3が出にくい）、緑＝最近クラッシュあり（×3が出やすい）。</span></div></div>
+      <div class="rules-mini-step"><div class="rules-mini-num">4</div><div class="rules-mini-body"><b>Changing odds</b> — after the market results, the stock percentages change based on how each stock just performed.<br><span class="jp-note">各シーズン終了後、株の確率はその結果に応じて変わります。大きく上がった株は次に上がりにくく、下がった株は上がりやすくなります。</span></div></div>
       <div class="rules-mini-step"><div class="rules-mini-num">5</div><div class="rules-mini-body"><b>Win</b> — most total wealth (cash + investments) after all seasons wins.<br><span class="jp-note">全シーズン終了後、手持ちの現金と投資中のお金の合計が最も多いプレイヤーが優勝です！</span></div></div>
     </div>`;
   // wire the inline name editor
@@ -631,10 +631,9 @@ function phaseResult(){
 function phaseAnswered(){
   const div=document.createElement('div');div.className='phase';
   div.innerHTML=`
-    <div class="wait-icon" style="animation:none;font-size:54px">✅</div>
+    <div class="wait-icon" style="animation:none;font-size:54px">🔒</div>
     <div class="phase-title display">LOCKED IN　/ 送信済み</div>
-    <div class="phase-sub">先生が答えを見せるまで待ってください。<br>Waiting for the teacher to reveal the answer...</div>
-    <div class="locked-badge" style="display:flex;align-items:center;justify-content:center;gap:10px">${symHTML(answerChoice,28)} <span>Choice ${answerChoice+1}</span></div>`;
+    <div class="phase-sub">先生が答えを見せるまで待ってください。<br>Waiting for the teacher to reveal the answer...</div>`;
   return div;
 }
 
@@ -1038,7 +1037,7 @@ document.head.appendChild(ablyScript);
     <div class="rules-mini-step"><div class="rules-mini-num">1</div><div class="rules-mini-body"><b>Answer &amp; earn</b> — correct answer earns the full season cash; wrong answer earns half (rounded up).<br><span class="jp-note">問題に正解すると全額、不正解でも半額（端数は切り上げ）がもらえます。どちらでも必ずお金がもらえるので諦めないで！</span></div></div>
     <div class="rules-mini-step"><div class="rules-mini-num">2</div><div class="rules-mini-body"><b>Invest freely</b> — after every question, put any amount into any stock, or <b>Stay Safe</b> to protect your cash. Use + / − or type the amount directly.<br><span class="jp-note">問題のあとは投資フェーズです。正解・不正解に関わらず、好きな株に好きな金額を投資できます。リスクを避けたい場合は「セーフ」を選んでお金をそのまま守りましょう。金額は入力か＋/−で調整できます。</span></div></div>
     <div class="rules-mini-step"><div class="rules-mini-num">3</div><div class="rules-mini-body"><b>Season end</b> — after 4 questions, each stock reveals a random multiplier: ×0 crash · ×0.5 dip · ×2 rise · ×3 boom. Your invested cash is multiplied and returned to your wallet.<br><span class="jp-note">4問が終わるとシーズン終了です。各株にランダムな倍率が発表されます。×0なら全額失い、×0.5なら半分、×2なら2倍、×3なら3倍になって戻ってきます。</span></div></div>
-    <div class="rules-mini-step"><div class="rules-mini-num">4</div><div class="rules-mini-body"><b>Heat system</b> — the ticker on the main screen shows live ×3 and ×0 odds per stock. <span style="color:#4cc9f0">Blue</span> = neutral. <span style="color:#ff3b5c">Red</span> = recently boomed (×3 less likely next season). <span style="color:#00ffa3">Green</span> = recently crashed (×3 more likely). ×3 and ×0 always move inversely.<br><span class="jp-note">メイン画面上部のバーで、各株の×3と×0の確率をリアルタイムで確認できます。青＝中立、赤＝最近ブームがあった（次は×3が出にくい）、緑＝最近クラッシュがあった（×3が出やすい）。×3と×0の確率は常に逆方向に動きます。</span></div></div>
+    <div class="rules-mini-step"><div class="rules-mini-num">4</div><div class="rules-mini-body"><b>Changing odds</b> — after each season, the stock percentages shift based on how each stock just performed. A stock that boomed is less likely to boom again. A stock that crashed is more likely to recover.<br><span class="jp-note">各シーズン後、株の確率はその結果に応じて変わります。大きく上がった株は次に上がりにくく、大きく下がった株は次に上がりやすくなります。</span></div></div>
     <div class="rules-mini-step"><div class="rules-mini-num">5</div><div class="rules-mini-body"><b>Win</b> — the player with the most total wealth (cash + investments) after all seasons wins.<br><span class="jp-note">全シーズン終了後、手持ちの現金と投資中のお金の合計が最も多いプレイヤーが優勝です。頑張ってください！</span></div></div>
   </div>
 </div>
