@@ -855,7 +855,7 @@ function rerollOne(qi){
   if(!pool.length){return;}
   const word=pool[Math.floor(Math.random()*pool.length)];
   const {choices,correct,choicesEn,correctEn}=buildChoices(word,activeList);
-  vocab[qi]={...vocab[qi],ctx:word.ctx||word.kw,kw:word.kw,jp:word.jp,choices,correct,choicesEn,correctEn,...(word.img?{img:word.img}:{})};
+  vocab[qi]={...vocab[qi],ctx:word.ctx||word.kw,kw:word.kw,jp:word.jp,n:word.n,choices,correct,choicesEn,correctEn,...(word.img?{img:word.img}:{})};
   renderVocabList();
   const items=document.querySelectorAll('.vocab-item');
   if(items[qi]){items[qi].style.animation='none';requestAnimationFrame(()=>{items[qi].style.animation='rerollFlash .4s ease';});}
@@ -1134,9 +1134,10 @@ function renderQuestionSlide(s){
     const displayWord=dir==='jp_en'?(v.jp||v.kw||''):(v.kw||v.prompt||'');
     promptHTML=`<span style="color:var(--green)">${esc(displayWord)}</span>`;
   }
+  const termLabel=showTermNumber?`<div style="font-size:13px;color:var(--dim);margin-bottom:4px">Term #${v.n}</div>`:'';
   div.innerHTML=`
     <div class="season-tag display" style="background:${sm.color}22;color:${sm.color};border:2px solid ${sm.color}44">${sm.emoji} SEASON ${s.s+1} · Q${s.q+1}</div>
-    <div class="q-prompt">${promptHTML}</div>
+    ${termLabel}<div class="q-prompt">${promptHTML}</div>
     <div class="q-choices" id="qChoices"></div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">
       <span class="ans-counter" id="ansCounter">${ansCount} / ${total} answered</span>
@@ -1963,7 +1964,7 @@ function doRandomize(){
       const word=shuffled[pickIdx++];
       const {choices,correct,choicesEn,correctEn}=buildChoices(word,activeList);
       const ctx=word.ctx||word.kw;
-      newVocab.push({ctx,kw:word.kw,jp:word.jp,choices,correct,choicesEn,correctEn,...(word.img?{img:word.img}:{})});
+      newVocab.push({ctx,kw:word.kw,jp:word.jp,n:word.n,choices,correct,choicesEn,correctEn,...(word.img?{img:word.img}:{})});
     }
   }
   vocab=newVocab;
