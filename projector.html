@@ -1510,7 +1510,7 @@ function renderSeasonEndSlide(s){
       if(podPhase<revealSteps.length){
         const topIdx=revealSteps[podPhase];const tid=top[topIdx];
         const place=top.length-topIdx; // 3rd or 2nd
-        const placeIdx=topIdx; // for medals/colors arrays (index 0=🥇,1=🥈,2=🥉)
+        const placeIdx=place-1; // for medals/colors arrays (index 0=🥉,1=🥈,2=🥇)
         const label=place===3?'AND IN THIRD PLACE...':'RUNNER UP...';
         const nextLabel=(podPhase+1<revealSteps.length)?'Second Place ▶':'The Winner ▶';
         div.innerHTML=`
