@@ -367,6 +367,8 @@ function termHeatLabel(h){
 // per-round
 let phase='waiting';      // waiting|answer|answered|invest|locked|revealed|seasonwait
 let answerChoice=null;
+let answerText='';        // typed-mode answer, separate from the choice-mode index above
+let answerMode='choice';  // mirrors the projector's setting: 'choice' | 'typed'
 
 let investChoice=null;
 let investAmount=0;
@@ -522,7 +524,8 @@ function renderPhase(){
   const fns={
     waiting:phaseWaiting,answer:phaseAnswer,answered:phaseAnswered,
     result:phaseResult,invest:phaseInvest,invested:phaseInvested,
-    seasonwait:phaseSeasonWait,rankview:phaseRankView,seasonready:phaseSeasonReady
+    seasonwait:phaseSeasonWait,rankview:phaseRankView,seasonready:phaseSeasonReady,
+    kicked:phaseKicked
   };
   try{
     if(fns[phase])area.appendChild(fns[phase]());
@@ -534,7 +537,7 @@ function renderPhase(){
 }
 
 function newRound(){
-  answerChoice=null;wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
+  answerChoice=null;answerText='';wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
   setPhase('waiting');
 }
 
@@ -591,6 +594,24 @@ function phaseWaiting(){
 }
 function phaseAnswer(){
   const div=document.createElement('div');div.className='phase';
+  if(answerMode==='typed'){
+    div.innerHTML=`
+      <div class="phase-title display">YOUR ANSWER　/ 答えを入力</div>
+      <div class="phase-sub">大画面を見て単語を入力。<br>Look at the big screen and type the word.</div>
+      <input id="typedAnsInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+        placeholder="Type your answer..." value="${esc(answerText)}"
+        style="width:100%;max-width:380px;padding:15px;border-radius:14px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-family:'Space Mono',monospace;font-size:18px;text-align:center">
+      <button class="lock-btn" id="lockAnsBtn" ${answerText.trim()===''?'disabled':''} onclick="lockAnswer()">🔒 LOCK IN ANSWER</button>`;
+    const inp=div.querySelector('#typedAnsInput');
+    inp.addEventListener('input',()=>{
+      answerText=inp.value;
+      const btn=div.querySelector('#lockAnsBtn');
+      if(btn)btn.disabled=answerText.trim()==='';
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&answerText.trim()!=='')lockAnswer();});
+    setTimeout(()=>inp.focus(),50);
+    return div;
+  }
   div.innerHTML=`
     <div class="phase-title display">YOUR ANSWER　/ 答えを選ぶ</div>
     <div class="phase-sub">大画面を見て答えをタップ。<br>Look at the big screen and tap your answer.</div>
@@ -605,9 +626,16 @@ function phaseAnswer(){
 }
 function selectAnswer(i){if(answerLocked)return;answerChoice=i;renderPhase();}
 function lockAnswer(){
-  if(answerChoice===null||answerLocked)return;
-  answerLocked=true;
-  publishAnswer(answerChoice);
+  if(answerLocked)return;
+  if(answerMode==='typed'){
+    if(answerText.trim()==='')return;
+    answerLocked=true;
+    publishAnswer(null,answerText.trim());
+  } else {
+    if(answerChoice===null)return;
+    answerLocked=true;
+    publishAnswer(answerChoice);
+  }
   setPhase('answered');
 }
 function phaseResult(){
@@ -741,22 +769,33 @@ function commitInvest(){
 
 function phaseInvested(){
   const div=document.createElement('div');div.className='phase';
-  let summary;
-  if(investChoice===-1){
-    summary=`<div style="font-size:40px">✊</div><div style="font-weight:800;color:var(--gold);font-size:16px">セーフ / Staying Safe</div>`;
-  } else {
-    const st=stocks[investChoice];
-    summary=`<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">${stockSymSVG(investChoice,40)}</div><div style="font-weight:800;color:var(--green);font-size:15px">${esc(st.name)}</div><div style="font-family:'Space Mono',monospace;font-size:13px;color:var(--dim)">$${investAmount} 投資済み / invested</div>`;
-  }
+  // Anti-peeking: once locked in, the chosen stock/amount is hidden — same
+  // treatment as the locked-answer screen (🔒 only), so a nearby team can't
+  // read what was invested before the teacher reveals totals.
   div.innerHTML=`
-    <div class="wait-icon" style="font-size:36px;animation:none">✅</div>
-    <div class="phase-title display" style="font-size:20px">DONE　/ 完了</div>
-    <div style="background:var(--panel);border:2px solid var(--green);border-radius:14px;padding:18px 24px;display:flex;flex-direction:column;align-items:center;gap:6px">${summary}</div>
-    <div class="phase-sub">次の問題を待ってください。<br>Wait for the next question.</div>`;
+    <div class="wait-icon" style="animation:none;font-size:54px">🔒</div>
+    <div class="phase-title display">LOCKED IN　/ 送信済み</div>
+    <div class="phase-sub">先生が集計を見せるまで待ってください。<br>Waiting for the teacher to reveal totals...</div>`;
   return div;
 }
+
+function phaseKicked(){
+  const div=document.createElement('div');div.className='phase';
+  div.innerHTML=`
+    <div class="wait-icon" style="animation:none;font-size:54px">🚪</div>
+    <div class="phase-title display">REMOVED　/ 退出しました</div>
+    <div class="phase-sub">先生がこの端末をゲームから外しました。<br>The teacher removed this device from the game.</div>
+    <button class="lock-btn" style="margin-top:14px" onclick="rejoinAfterKick()">Rejoin ▶ 再参加</button>`;
+  return div;
+}
+function rejoinAfterKick(){
+  // Same tid, same name — this is a soft "drop from the game", not a ban,
+  // so tapping Rejoin just re-registers exactly like a normal reconnect.
+  showSetup();
+}
+
 function newRound(){
-  answerChoice=null;wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
+  answerChoice=null;answerText='';wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
   setPhase('waiting');
 }
 
@@ -849,6 +888,7 @@ function initAbly(){
       stocks=d.stocks;if(d.seasonCash)SEASON_CASH=d.seasonCash;if(d.timerSec)timerSec=d.timerSec;
       if(d.stockColors)STOCK_COLORS=d.stockColors;
       if(d.stockHeat)_termStockHeat=d.stockHeat;
+      if(d.answerMode)answerMode=d.answerMode;
       if(d.themeIdx!=null)applyProjectorTheme(d.themeIdx);
       else renderPhase();
     });
@@ -866,6 +906,7 @@ function initAbly(){
       stocks=d.stocks;if(d.seasonCash)SEASON_CASH=d.seasonCash;if(d.timerSec)timerSec=d.timerSec;
       if(d.stockColors)STOCK_COLORS=d.stockColors;
       if(d.stockHeat)_termStockHeat=d.stockHeat;
+      if(d.answerMode)answerMode=d.answerMode;
       if(d.themeIdx!=null)applyProjectorTheme(d.themeIdx);
       cash=d.cash;portfolio=d.portfolio||[0,0,0,0];
       lastInvestStock=d.lastInvestStock??null;
@@ -879,6 +920,12 @@ function initAbly(){
     // projector changed slide
     _ch.subscribe('slide-change',msg=>{
       handleSlideChange(msg.data);
+    });
+
+    // teacher removed this device from the game
+    _ch.subscribe('player-kick',msg=>{
+      if(msg.data.id!==_tid)return;
+      setPhase('kicked');
     });
 
     // answer revealed — projector tells us correct/wrong
@@ -919,7 +966,7 @@ function initAbly(){
     _ch.subscribe('season-reset',msg=>{
       portfolio=[0,0,0,0];lastInvestStock=null;
       // _lastSeasonMults and _lastPortfolio intentionally kept — seasonwait screen still showing
-      answerChoice=null;wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
+      answerChoice=null;answerText='';wasCorrect=null;_lastEarned=null;investChoice=null;investAmount=0;answerLocked=false;
       updateHeader();
       setPhase('waiting');
     });
@@ -931,7 +978,7 @@ function handleSlideChange(d){
   currentSlideType=d.type;
   currentSlideS=d.s;currentSlideQ=d.q;
   if(d.type==='question'){
-    answerChoice=null;answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
+    answerChoice=null;answerText='';answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
     setPhase('answer');
   } else if(d.type==='results'){
     if(phase!=='result')setPhase('waiting');
@@ -949,7 +996,7 @@ function handleSlideChange(d){
     _lastPortfolio=[0,0,0,0];
     setPhase('seasonready');
   } else if(d.type==='rules'){
-    answerChoice=null;answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
+    answerChoice=null;answerText='';answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
     setPhase('waiting');
   } else if(d.type==='victory'||d.type==='credits'){
     setPhase('rankview');
@@ -1002,9 +1049,9 @@ function publishRegister(){
   if(!_ablyReady||!_ch)return;
   _ch.publish('player-register',{id:_tid,name:myName,colorIdx:myColorIdx});
 }
-function publishAnswer(choice){
+function publishAnswer(choice,text){
   if(!_ablyReady||!_ch)return;
-  _ch.publish('player-answer',{id:_tid,choice,s:currentSlideS,q:currentSlideQ});
+  _ch.publish('player-answer',{id:_tid,choice,text,s:currentSlideS,q:currentSlideQ});
 }
 function publishInvest(stockIdx,amount){
   if(!_ablyReady||!_ch)return;
