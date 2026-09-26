@@ -556,6 +556,19 @@ let gameStarted=false;
 function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
 function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
 function totalWealth(p){return p.cash+p.portfolio.reduce((s,v)=>s+v,0)}
+// Ranking with tie-breaks: money first, then more correct answers, then more
+// money invested over the whole game. Every standings screen, the podium and
+// the terminals' rank badges use this one order, so ties can't be decided by
+// join order any more.
+function rankedPlayers(valFn){
+  const val=valFn||(p=>p.cash);
+  return playerOrder.slice().sort((a,b)=>{
+    const A=players[a],B=players[b];
+    return (val(B)-val(A))
+      ||((B.statCorrect||0)-(A.statCorrect||0))
+      ||((B.statTotalInvested||0)-(A.statTotalInvested||0));
+  });
+}
 function colorIdx(tid){
   const idx=playerOrder.indexOf(tid);
   return idx>=0?idx%PLAYER_COLORS.length:0;
@@ -1611,7 +1624,7 @@ function renderSlide(){
 
 // ── SLIDES ────────────────────────────────────────────────────────────────────
 function wealthChips(){
-  return playerOrder.slice().sort((a,b)=>totalWealth(players[b])-totalWealth(players[a])).map(tid=>{
+  return rankedPlayers(totalWealth).map(tid=>{
     const p=players[tid];
     return`<div class="player-chip"><span class="dot" style="background:${PLAYER_COLORS[colorIdx(tid)]}"></span><span class="pname">${esc(p.name)}</span><span class="pcash">$${totalWealth(p)}</span></div>`;
   }).join('');
@@ -2041,7 +2054,7 @@ function renderSeasonEndSlide(s){
     return div;
   }
   if(s.phase>=2){
-    const order=playerOrder.slice().sort((a,b)=>players[b].cash-players[a].cash);
+    const order=rankedPlayers();
     if(!isFinal){
       if(!order.length){
         div.innerHTML=`
@@ -2141,7 +2154,7 @@ function applySeasonPayouts(s){
 function advSeasonPhase(slideIdx){
   const s=slides[slideIdx];
   const isFinal=slideIdx===slides.length-2; // credits is the last slide
-  const order=playerOrder.slice().sort((a,b)=>players[b].cash-players[a].cash);
+  const order=rankedPlayers();
   const top=order.slice(0,3);
   // total reveal steps: phase 0=market cards, 1=highlights, 2+=podium (3rd,2nd,winner)
   // for final season: phases 2,3,4 = 3rd,2nd,winner (if 3 players)
@@ -2159,7 +2172,7 @@ function advSeasonPhase(slideIdx){
 }
 function renderVictorySlide(){
   const div=document.createElement('div');div.className='slide';
-  const order=playerOrder.slice().sort((a,b)=>players[b].cash-players[a].cash);
+  const order=rankedPlayers();
   if(!window._confettiDone){window._confettiDone=true;sfxVictory();for(let i=0;i<80;i++)spawnConfetti()}
   div.innerHTML=`
     <div class="tag">GAME OVER</div>
@@ -2180,7 +2193,7 @@ function renderCreditsSlide(){
   const div=document.createElement('div');div.className='slide';
   div.style.cssText='flex-direction:row;align-items:stretch;gap:0;padding:0;overflow:hidden';
 
-  const order=[...playerOrder].sort((a,b)=>players[b].cash-players[a].cash);
+  const order=rankedPlayers();
   const top=order.slice(0,3);
   const medals=['🥇','🥈','🥉'];
   const medalColors=['#ffd700','#c0c0c0','#cd7f32'];
@@ -2434,7 +2447,7 @@ function broadcastCashUpdate(){
   playerOrder.forEach(tid=>{
     updates[tid]={cash:players[tid].cash,portfolio:players[tid].portfolio};
   });
-  _ch.publish('cash-update',{updates});
+  _ch.publish('cash-update',{updates,rankOrder:rankedPlayers(totalWealth)});
 }
 function broadcastSeasonReset(){
   if(!_ch)return;
