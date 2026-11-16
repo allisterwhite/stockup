@@ -780,8 +780,17 @@ function phaseInvested(){
   return div;
 }
 
+let _kickReason='',_kickMax=40;
 function phaseKicked(){
   const div=document.createElement('div');div.className='phase';
+  if(_kickReason==='full'){
+    div.innerHTML=`
+    <div class="wait-icon" style="animation:none;font-size:54px">🈵</div>
+    <div class="phase-title display">GAME FULL　/ 満員です</div>
+    <div class="phase-sub">このゲームは${_kickMax}人までです。友だちと一緒に参加してください。<br>This game is full (${_kickMax} players). Please share a tablet with a classmate.</div>
+    <button class="lock-btn" style="margin-top:14px" onclick="rejoinAfterKick()">Try again ▶ もう一度</button>`;
+    return div;
+  }
   div.innerHTML=`
     <div class="wait-icon" style="animation:none;font-size:54px">🚪</div>
     <div class="phase-title display">REMOVED　/ 退出しました</div>
@@ -927,6 +936,7 @@ function initAbly(){
     // teacher removed this device from the game
     _ch.subscribe('player-kick',msg=>{
       if(msg.data.id!==_tid)return;
+      _kickReason=msg.data.reason||'';_kickMax=msg.data.max||40;
       setPhase('kicked');
     });
 
