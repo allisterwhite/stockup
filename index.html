@@ -77,6 +77,14 @@ input{font-family:inherit}
 .phase{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:16px;text-align:center;overflow-y:auto}
 .phase-title{font-size:clamp(20px,6vw,32px)}
 .phase-sub{font-size:13px;color:var(--dim);max-width:360px;line-height:1.6}
+.review-phase{justify-content:safe center;gap:clamp(6px,1.4vh,12px)}
+.rv-t{font-size:clamp(20px,6vw,30px)}
+.rv-tsub{font-size:12px;color:var(--dim);margin-top:-6px}
+.rv-list{display:flex;flex-direction:column;gap:clamp(5px,1vh,8px);width:min(94vw,560px)}
+.rv-row{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:clamp(6px,1.2vh,10px) 14px;text-align:left}
+.rv-row .rv-en{font-size:clamp(17px,min(5vw,3.6vh),24px);font-weight:800;line-height:1.2;color:var(--text)}
+.rv-row .rv-jp{font-size:clamp(14px,min(4.2vw,3vh),19px);color:var(--dim);font-weight:700;margin-top:2px;line-height:1.3}
+.rv-row .hl-word{color:var(--gold);border-bottom:2px solid var(--gold);padding:0 1px;font-weight:900}
 
 /* TIMER */
 .timer-ring{position:relative;width:64px;height:64px;flex-shrink:0;margin:0 auto}
@@ -378,6 +386,43 @@ let currentSlideType=null;
 let currentSlideS=null,currentSlideQ=null;
 
 function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+// Same highlighter as the projector (copied verbatim), for the Words to Review list
+function highlightPromptHTML(text,hl){
+  const t=text||'';
+  const h=(hl||'').trim();
+  if(!h)return esc(t);
+  // Highlight equals the whole word (single-word item) — nothing to visually
+  // distinguish, so render plain and let the caller's own styling stand.
+  // This is what keeps Basic/Standard/plain-word Yume items looking exactly
+  // as they did before this feature existed.
+  if(h.toLowerCase()===t.trim().toLowerCase())return esc(t);
+  let idx=t.toLowerCase().indexOf(h.toLowerCase()),len=h.length;
+  if(idx===-1&&h.length>=4&&!/\s/.test(h)&&/^[a-z]+$/i.test(h)){
+    // Inflected form in the phrase (battery -> "work on batteries"): match the
+    // word that starts with the headword's stem and highlight that whole word.
+    const m=new RegExp('\\b'+h.slice(0,h.length-1).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[a-z]*','i').exec(t);
+    if(m){idx=m.index;len=m[0].length;}
+  }
+  if(idx===-1&&/[\u3040-\u30ff\u4e00-\u9fff]/.test(h)){
+    // Japanese answer that the phrase words differently (古代の in 古代都市,
+    // し続ける in 勉強を続ける, より好む in 魚より肉を好む): highlight the longest
+    // piece of the answer that IS in the phrase, preferring pieces with kanji or
+    // katakana (好む over より). A single character only counts if it's a kanji.
+    const a=h.replace(/[…〜~]/g,'').replace(/^[A-Za-zＡ-Ｚ]+/,'');
+    let best=null,score=0;
+    for(let i=0;i<a.length;i++)for(let j=i+1;j<=a.length;j++){
+      const s=a.slice(i,j),at=t.indexOf(s);
+      if(at<0)break;
+      const strong=/[\u4e00-\u9fff\u30a0-\u30ff]/.test(s);
+      if(s.length<2&&!/[\u4e00-\u9fff]/.test(s))continue;
+      const sc=s.length+(strong?.5:0);
+      if(sc>score){score=sc;best={at,len:s.length};}
+    }
+    if(best){idx=best.at;len=best.len;}
+  }
+  if(idx===-1||(idx===0&&len>=t.length))return esc(t);
+  return esc(t.slice(0,idx))+`<span class="hl-word">${esc(t.slice(idx,idx+len))}</span>`+esc(t.slice(idx+len));
+}
 function totalWealth(){return cash+portfolio.reduce((s,v)=>s+v,0)}
 function updateHeader(){
   document.getElementById('wealthVal').textContent='$'+cash;
@@ -526,7 +571,7 @@ function renderPhase(){
     waiting:phaseWaiting,answer:phaseAnswer,answered:phaseAnswered,
     result:phaseResult,invest:phaseInvest,invested:phaseInvested,
     seasonwait:phaseSeasonWait,rankview:phaseRankView,seasonready:phaseSeasonReady,
-    kicked:phaseKicked
+    kicked:phaseKicked,review:phaseReview
   };
   try{
     if(fns[phase])area.appendChild(fns[phase]());
@@ -1011,6 +1056,10 @@ function handleSlideChange(d){
   } else if(d.type==='rules'){
     answerChoice=null;answerText='';answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
     setPhase('waiting');
+  } else if(d.type==='review'){
+    // Words to Review: the same list as the big screen (no miss counts)
+    _reviewWords=Array.isArray(d.reviewWords)?d.reviewWords:[];
+    setPhase(_reviewWords.length?'review':'rankview');
   } else if(d.type==='victory'||d.type==='credits'){
     setPhase('rankview');
   }
@@ -1031,6 +1080,14 @@ function phaseSeasonReady(){
   return div;
 }
 
+let _reviewWords=[];
+function phaseReview(){
+  const div=document.createElement('div');div.className='phase review-phase';
+  div.innerHTML=`<div class="phase-title display rv-t">📖 REVIEW / 復習しよう</div>
+    <div class="rv-tsub">Words the class missed / みんなが間違えた単語</div>
+    <div class="rv-list">${_reviewWords.map(x=>`<div class="rv-row"><div class="rv-en">${highlightPromptHTML(x.en,x.enHl)}</div>${x.jp?`<div class="rv-jp">${highlightPromptHTML(x.jp,x.jpHl)}</div>`:''}</div>`).join('')}</div>`;
+  return div;
+}
 function phaseRankView(){
   const div=document.createElement('div');div.className='phase';
   div.style.justifyContent='flex-start';div.style.paddingTop='12px';
