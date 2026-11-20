@@ -77,6 +77,15 @@ input{font-family:inherit}
 .phase{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:16px;text-align:center;overflow-y:auto}
 .phase-title{font-size:clamp(20px,6vw,32px)}
 .phase-sub{font-size:13px;color:var(--dim);max-width:360px;line-height:1.6}
+.ans-grid.with-text{max-width:520px}
+.ans-grid.with-text .ans-card{flex-direction:row;justify-content:flex-start;gap:10px;padding:clamp(10px,1.8vh,16px) 12px;text-align:left;min-height:clamp(58px,9vh,92px)}
+.ans-grid.with-text .ans-sym{width:40px;height:40px;flex-shrink:0;border-radius:10px}
+.ans-text{font-size:clamp(17px,min(4.6vw,3.2vh),26px);font-weight:800;color:var(--text);line-height:1.2;overflow-wrap:break-word;min-width:0}
+.ans-text.long{font-size:clamp(14px,min(3.8vw,2.6vh),20px)}
+.term-q{background:var(--panel);border:1.5px solid var(--line);border-radius:14px;padding:clamp(8px,1.6vh,14px) 16px;width:100%;max-width:440px;font-size:clamp(20px,min(6vw,4.4vh),34px);font-weight:800;line-height:1.3;color:var(--text);overflow-wrap:break-word}
+.term-q .hl-word{color:var(--gold);border-bottom:2px solid var(--gold);padding:0 1px;font-weight:900;white-space:nowrap}
+.term-q.img{font-size:15px;font-weight:700;color:var(--dim)}
+.term-q.long{font-size:clamp(16px,min(4.6vw,3.4vh),24px)}
 .typed-lang{font-size:15px;font-weight:800;color:var(--gold);margin-top:-4px}
 .typed-warn{display:none;font-size:15px;font-weight:800;color:#ff5a5a;background:rgba(255,60,60,.12);border:1.5px solid rgba(255,60,60,.45);border-radius:10px;padding:6px 14px;text-align:center}
 .typed-warn.on{display:block}
@@ -648,7 +657,7 @@ function phaseAnswer(){
     const en=_answerLang==='en',jp=_answerLang==='jp';
     div.innerHTML=`
       <div class="phase-title display">YOUR ANSWER　/ 答えを入力</div>
-      <div class="phase-sub">大画面を見て単語を入力。<br>Look at the big screen and type the word.</div>
+      ${_qPrompt?questionCardHTML():'<div class="phase-sub">大画面を見て単語を入力。<br>Look at the big screen and type the word.</div>'}
       ${en||jp?`<div class="typed-lang">${en?'✏️ Type in English / 英語で入力':'✏️ Type in Japanese / 日本語で入力'}</div>`:''}
       <input id="typedAnsInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
         placeholder="${jp?'答えを入力…':'Type your answer...'}" value="${esc(answerText)}"
@@ -676,19 +685,31 @@ function phaseAnswer(){
   }
   div.innerHTML=`
     <div class="phase-title display">YOUR ANSWER　/ 答えを選ぶ</div>
-    <div class="phase-sub">大画面を見て答えをタップ。<br>Look at the big screen and tap your answer.</div>
-    <div class="ans-grid" id="ansGrid"></div>
+    ${questionCardHTML()}
+    ${_qChoices?'':'<div class="phase-sub">大画面を見て答えをタップ。<br>Look at the big screen and tap your answer.</div>'}
+    <div class="ans-grid${_qChoices?' with-text':''}" id="ansGrid"></div>
     <button class="lock-btn" id="lockAnsBtn" ${answerChoice===null?'disabled':''} onclick="lockAnswer()">🔒 LOCK IN ANSWER</button>`;
   div.querySelector('#ansGrid').innerHTML=SYMS.map((_,i)=>`
     <div class="ans-card ${answerChoice===i?'sel':''}" onclick="selectAnswer(${i})">
-      <div class="ans-sym" style="background:${SYMS[i].bg}">${symHTML(i,48)}</div>
-      <div class="ans-label">Choice ${i+1}</div>
+      <div class="ans-sym" style="background:${SYMS[i].bg}">${symHTML(i,_qChoices?34:48)}</div>
+      ${_qChoices?`<div class="ans-text${String(_qChoices[i]).length>14?' long':''}">${esc(_qChoices[i])}</div>`:`<div class="ans-label">Choice ${i+1}</div>`}
     </div>`).join('');
   return div;
 }
 // Which language the current question's answer must be typed in ('en' | 'jp'),
 // sent by the projector on each question. null = unknown (older projector): no check.
 let _answerLang=null;
+// The question as the big screen shows it ({text,hl} or {isImage}), sent with each question
+let _qPrompt=null;
+// Multiple choice: the four answer texts in shape order (no correct index), or null
+let _qChoices=null;
+function questionCardHTML(){
+  const q=_qPrompt;
+  if(!q)return'';
+  if(q.isImage)return`<div class="term-q img">🖼️ Look at the picture on the big screen<br>大画面の絵を見て答えよう</div>`;
+  if(!q.text)return'';
+  return`<div class="term-q${q.text.length>28?' long':''}">${highlightPromptHTML(q.text,q.hl)}</div>`;
+}
 const JP_CHARS=/[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]/,EN_LETTERS=/[A-Za-z\uff21-\uff3a\uff41-\uff5a]/;
 function wrongScript(text){
   if(!text||!_answerLang)return false;
@@ -1062,6 +1083,8 @@ function handleSlideChange(d){
   currentSlideS=d.s;currentSlideQ=d.q;
   if(d.type==='question'){
     _answerLang=d.answerLang||null;
+    _qPrompt=d.prompt||null;
+    _qChoices=Array.isArray(d.choices)&&d.choices.length===4&&d.choices.some(c=>c)?d.choices:null;
     answerChoice=null;answerText='';answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
     setPhase('answer');
   } else if(d.type==='results'){

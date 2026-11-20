@@ -219,6 +219,9 @@ button{font-family:inherit;cursor:pointer}
 @keyframes flameBob{0%{transform:translateY(0) scale(1)}100%{transform:translateY(-2px) scale(1.15)}}
 .market-col.has-investors{border-color:rgba(255,255,255,.14)}
 .market-col-header{display:flex;flex-direction:column;align-items:center;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.mc-odds{display:flex;flex-direction:column;align-items:center;gap:1px;border-radius:9px;padding:5px 8px;width:100%;font-family:'Space Mono',monospace;font-weight:800;line-height:1.15}
+.mc-odds .mo-up{font-size:clamp(15px,1.7vw,22px)}
+.mc-odds .mo-dn{font-size:clamp(12px,1.25vw,16px);opacity:.85}
 .market-col-players{display:flex;flex-direction:column;gap:5px}
 .market-player-chip{display:flex;align-items:center;gap:5px;border:1.5px solid transparent;border-radius:8px;padding:4px 7px;animation:chipIn .3s ease both}
 .safe-player-chip{display:flex;align-items:center;gap:6px;border:1.5px solid transparent;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;background:var(--panel)}
@@ -405,7 +408,6 @@ button{font-family:inherit;cursor:pointer}
 </div>
 
 <div id="game">
-  <div id="ticker"></div>
   <div id="slideArea"></div>
   <div id="ctrlBar">
     <button class="ctrl-btn btn-edit" onclick="toEditor()">⚙ Edit</button>
@@ -1731,8 +1733,11 @@ function canAdvance(s){
   if(s.type==='question')return s.revealed===true;
   return true;
 }
+// The ticker bar at the top was removed (Nov 20): the odds now sit on each stock
+// on the invest slide (renderBetweenQSlide). Kept as a no-op-safe function.
 function renderTicker(){
-  document.getElementById('ticker').innerHTML=stocks.map((st,i)=>{
+  const el=document.getElementById('ticker');if(!el)return;
+  el.innerHTML=stocks.map((st,i)=>{
     const h=heatLabel(displayedStockHeat[i]);
     return`<div class="tick-chip"><span class="tick-emoji" style="display:flex;align-items:center">${stockSymSVG(i,18)}</span><span class="tick-name">${esc(st.name)}</span><span class="tick-heat" style="background:${h.bg};color:${h.color}">×3 ${h.pct3}% · ×0 ${h.pct0}%</span></div>`;
   }).join('');
@@ -1784,6 +1789,15 @@ function fitBigPrompt(div,hShare){
     while(f>48&&(q.scrollWidth>q.clientWidth+1||q.offsetHeight>div.clientHeight*hShare||div.scrollHeight>div.clientHeight+1)){f-=4;q.style.fontSize=f+'px';}};
   requestAnimationFrame(run);
 }
+// The question text exactly as the big screen shows it (also sent to the
+// tablets). Picture cards send no picture, just isImage.
+function questionPrompt(v){
+  if(!v)return{text:'',hl:''};
+  if(v.img)return{isImage:true};
+  const isSentence=!!(v.hl&&v.fullJp);
+  if(getItemDir(v)==='jp_en')return{text:isSentence?(v.fullJp||''):(v.jp||v.kw||''),hl:v.jp};
+  return{text:v.kw||v.prompt||'',hl:v.hl};
+}
 function renderQuestionSlide(s){
   const div=document.createElement('div');div.className='slide';
   const v=vocab[s.vIdx];const sm=SEASON_META[s.s%4];
@@ -1796,16 +1810,8 @@ function renderQuestionSlide(s){
   if(isImageCard){
     promptHTML=`<img src="${v.img}" style="max-height:220px;max-width:400px;object-fit:contain;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.4)">`;
   } else {
-    const isSentence=!!(v.hl&&v.fullJp);
-    let displayWord,hlWord;
-    if(dir==='jp_en'){
-      displayWord=isSentence?(v.fullJp||''):(v.jp||v.kw||'');
-      hlWord=v.jp;
-    } else {
-      displayWord=v.kw||v.prompt||'';
-      hlWord=v.hl;
-    }
-    promptHTML=`<span style="color:var(--green)">${highlightPromptHTML(displayWord,hlWord)}</span>`;
+    const q=questionPrompt(v);
+    promptHTML=`<span style="color:var(--green)">${highlightPromptHTML(q.text,q.hl)}</span>`;
   }
   const termLabel=showTermNumber?`<div style="font-size:13px;color:var(--dim);margin-bottom:4px">Term #${v.n}</div>`:'';
   div.innerHTML=`
@@ -2076,6 +2082,7 @@ function renderBetweenQSlide(s){
       <div class="market-col-header" style="border-color:${col}22">
         <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">${stockSymSVG(si,28)}</div>
         <div style="font-size:12px;font-weight:800;color:${col};text-align:center;line-height:1.2">${esc(st.name)}</div>
+        ${(()=>{const h=heatLabel(displayedStockHeat[si]);return`<div class="mc-odds" style="background:${h.bg};color:${h.color};border:1.5px solid ${h.color}55"><span class="mo-up">×3 ${h.pct3}%</span><span class="mo-dn">×0 ${h.pct0}%</span></div>`;})()}
         ${totalsRevealed&&seasonTotal>0
           ?`<div style="font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:${col};margin:2px 0">$${seasonTotal}</div>`
           :`<div style="font-size:10px;color:var(--dim2);margin:2px 0">—</div>`}
@@ -2585,17 +2592,46 @@ function broadcastSettings(){
 function slideExtras(s){
   if(!s)return{};
   if(s.type==='review')return{reviewWords:reviewWordsForTablets()};
-  if(s.type==='question'){const v=vocab[s.vIdx];return{answerLang:altFieldFor(v)==='altEn'?'en':'jp'};}
+  if(s.type==='question'){
+    const v=vocab[s.vIdx];
+    // Multiple choice: the four answer texts in shape order, so students can play
+    // from the tablet alone. Never which one is correct — that comes with the reveal.
+    const choices=answerMode==='choice'&&v?getVocabChoices(v).choices.map(c=>String(c||'')):undefined;
+    return{answerLang:altFieldFor(v)==='altEn'?'en':'jp',prompt:questionPrompt(v),choices};
+  }
   return{};
 }
-function broadcastSlide(){
-  if(!_ch||!slides[cur])return;
-  const s=slides[cur];
+// The tablets must never see a question before the big screen does. Callers
+// broadcast just before renderSlide(), so a question slide is held back until the
+// projector has actually painted it (next animation frame), with a short timeout
+// fallback in case the tab isn't being painted. Any other broadcast, or the reveal,
+// sends a held question first so messages stay in order.
+let _heldSlideSend=null;
+function _sendSlideNow(idx){
+  const s=slides[idx];if(!_ch||!s)return;
   const isFinal=s.type==='seasonend'&&s.s===numSeasons-1;
   _ch.publish('slide-change',{type:s.type,s:s.s,q:s.q,phase:s.phase,isFinal,...slideExtras(s)});
 }
+function flushHeldSlide(){
+  if(!_heldSlideSend)return;
+  const idx=_heldSlideSend.idx;_heldSlideSend=null;
+  if(idx===cur)_sendSlideNow(idx); // skip it if the teacher has already moved on
+}
+function broadcastSlide(){
+  if(!_ch||!slides[cur])return;
+  flushHeldSlide();
+  if(slides[cur].type==='question'){
+    const held={idx:cur};_heldSlideSend=held;
+    const go=()=>{if(_heldSlideSend===held)flushHeldSlide();};
+    requestAnimationFrame(()=>setTimeout(go,0));
+    setTimeout(go,150);
+    return;
+  }
+  _sendSlideNow(cur);
+}
 function broadcastReveal(slideIdx,correct,seasonCash,halfCash){
   if(!_ch)return;
+  flushHeldSlide();
   const v=vocab[slides[slideIdx]?.vIdx];
   const results={};
   playerOrder.forEach(tid=>{
