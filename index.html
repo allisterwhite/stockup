@@ -77,6 +77,10 @@ input{font-family:inherit}
 .phase{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;padding:16px;text-align:center;overflow-y:auto}
 .phase-title{font-size:clamp(20px,6vw,32px)}
 .phase-sub{font-size:13px;color:var(--dim);max-width:360px;line-height:1.6}
+.typed-lang{font-size:15px;font-weight:800;color:var(--gold);margin-top:-4px}
+.typed-warn{display:none;font-size:15px;font-weight:800;color:#ff5a5a;background:rgba(255,60,60,.12);border:1.5px solid rgba(255,60,60,.45);border-radius:10px;padding:6px 14px;text-align:center}
+.typed-warn.on{display:block}
+#typedAnsInput.bad{border-color:#ff5a5a!important;background:rgba(255,60,60,.08)!important}
 .review-phase{justify-content:safe center;gap:clamp(6px,1.4vh,12px)}
 .rv-t{font-size:clamp(20px,6vw,30px)}
 .rv-tsub{font-size:12px;color:var(--dim);margin-top:-6px}
@@ -641,20 +645,32 @@ function phaseWaiting(){
 function phaseAnswer(){
   const div=document.createElement('div');div.className='phase';
   if(answerMode==='typed'){
+    const en=_answerLang==='en',jp=_answerLang==='jp';
     div.innerHTML=`
       <div class="phase-title display">YOUR ANSWER　/ 答えを入力</div>
       <div class="phase-sub">大画面を見て単語を入力。<br>Look at the big screen and type the word.</div>
+      ${en||jp?`<div class="typed-lang">${en?'✏️ Type in English / 英語で入力':'✏️ Type in Japanese / 日本語で入力'}</div>`:''}
       <input id="typedAnsInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-        placeholder="Type your answer..." value="${esc(answerText)}"
+        placeholder="${jp?'答えを入力…':'Type your answer...'}" value="${esc(answerText)}"
         style="width:100%;max-width:380px;padding:15px;border-radius:14px;border:2px solid var(--line);background:var(--panel2);color:var(--text);font-family:'Space Mono',monospace;font-size:18px;text-align:center">
-      <button class="lock-btn" id="lockAnsBtn" ${answerText.trim()===''?'disabled':''} onclick="lockAnswer()">🔒 LOCK IN ANSWER</button>`;
+      <div class="typed-warn" id="typedWarn">${en?'⚠️ English letters only! / 英語で入力してね':'⚠️ Japanese only! / 日本語で入力してね'}</div>
+      <button class="lock-btn" id="lockAnsBtn" disabled onclick="lockAnswer()">🔒 LOCK IN ANSWER</button>`;
     const inp=div.querySelector('#typedAnsInput');
-    inp.addEventListener('input',()=>{
-      answerText=inp.value;
-      const btn=div.querySelector('#lockAnsBtn');
-      if(btn)btn.disabled=answerText.trim()==='';
-    });
-    inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&answerText.trim()!=='')lockAnswer();});
+    const btn=div.querySelector('#lockAnsBtn'),warn=div.querySelector('#typedWarn');
+    // Patch 26b from Dungeon Quest: no locking in an answer in the wrong language.
+    // Not checked while a Japanese IME is still converting (romaji mid-typing is fine).
+    let composing=false;
+    const paint=()=>{
+      const bad=!composing&&wrongScript(inp.value);
+      warn.classList.toggle('on',bad);inp.classList.toggle('bad',bad);
+      btn.disabled=composing?answerText.trim()==='':!typedAnswerOK();
+    };
+    inp.addEventListener('compositionstart',()=>{composing=true;});
+    inp.addEventListener('compositionend',()=>{composing=false;answerText=inp.value;paint();});
+    inp.addEventListener('input',e=>{if(e.isComposing)composing=true;answerText=inp.value;paint();});
+    // Enter locks in, but not while the IME is still converting
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();if(typedAnswerOK())lockAnswer();else paint();}});
+    paint();
     setTimeout(()=>inp.focus(),50);
     return div;
   }
@@ -670,11 +686,20 @@ function phaseAnswer(){
     </div>`).join('');
   return div;
 }
+// Which language the current question's answer must be typed in ('en' | 'jp'),
+// sent by the projector on each question. null = unknown (older projector): no check.
+let _answerLang=null;
+const JP_CHARS=/[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]/,EN_LETTERS=/[A-Za-z\uff21-\uff3a\uff41-\uff5a]/;
+function wrongScript(text){
+  if(!text||!_answerLang)return false;
+  return _answerLang==='en'?JP_CHARS.test(text):EN_LETTERS.test(text);
+}
+function typedAnswerOK(){return answerText.trim()!==''&&!wrongScript(answerText);}
 function selectAnswer(i){if(answerLocked)return;answerChoice=i;renderPhase();}
 function lockAnswer(){
   if(answerLocked)return;
   if(answerMode==='typed'){
-    if(answerText.trim()==='')return;
+    if(!typedAnswerOK())return;
     answerLocked=true;
     publishAnswer(null,answerText.trim());
   } else {
@@ -1036,6 +1061,7 @@ function handleSlideChange(d){
   currentSlideType=d.type;
   currentSlideS=d.s;currentSlideQ=d.q;
   if(d.type==='question'){
+    _answerLang=d.answerLang||null;
     answerChoice=null;answerText='';answerLocked=false;wasCorrect=null;investChoice=null;investAmount=0;
     setPhase('answer');
   } else if(d.type==='results'){
